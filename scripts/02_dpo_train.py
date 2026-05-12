@@ -25,6 +25,7 @@ from findpo.env_info import assert_clean_tree, write_env_and_git  # noqa: E402
 from findpo.paths import run_paths  # noqa: E402
 from findpo.sanity import check_preference_pair_format, check_tokenizer_alignment  # noqa: E402
 from findpo.seeding import set_seed  # noqa: E402
+from findpo.tokenizer_setup import setup_tokenizer  # noqa: E402
 from findpo.tracking import DualLogger, WandbCfg  # noqa: E402
 
 
@@ -64,8 +65,7 @@ def main() -> int:
 
     model_name = cfg["model"]["name"]
     tok = AutoTokenizer.from_pretrained(model_name, revision=cfg["model"].get("revision"))
-    if tok.pad_token is None:
-        tok.pad_token = tok.eos_token
+    setup_tokenizer(tok, padding_side="right")   # DPO training → right pad
 
     ok, det = check_tokenizer_alignment(tok, cfg["prompt"]["system"], "test text")
     assert ok, f"tokenizer chat template broken: {det}"
@@ -84,7 +84,9 @@ def main() -> int:
         attn_implementation=cfg["model"].get("attn_implementation"),
     )
     model = prepare_model_for_kbit_training(
-        model, use_gradient_checkpointing=cfg["train"]["gradient_checkpointing"],
+        model,
+        use_gradient_checkpointing=cfg["train"]["gradient_checkpointing"],
+        gradient_checkpointing_kwargs={"use_reentrant": False},
     )
     model.config.use_cache = False
 
@@ -126,10 +128,12 @@ def main() -> int:
         gradient_checkpointing=cfg["train"]["gradient_checkpointing"],
         optim=cfg["train"]["optim"],
         logging_steps=cfg["train"]["logging_steps"],
-        save_steps=cfg["train"]["save_steps"],
+        save_strategy=cfg["train"]["save_strategy"],
         save_total_limit=cfg["train"]["save_total_limit"],
         eval_strategy=cfg["train"]["eval_strategy"],
         load_best_model_at_end=cfg["train"]["load_best_model_at_end"],
+        metric_for_best_model=cfg["train"]["metric_for_best_model"],
+        greater_is_better=cfg["train"]["greater_is_better"],
         report_to=cfg["train"]["report_to"] if not args.skip_wandb else "none",
         run_name=f"{cfg['experiment']['id']}_seed{args.seed}",
         generate_during_eval=cfg["train"]["generate_during_eval"],

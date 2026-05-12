@@ -29,10 +29,17 @@ DATASET_FIELD_MAP: dict[str, dict[str, str]] = {
 }
 
 
-def _normalize_example(ex: dict, fields: dict[str, str], source: str) -> dict:
+# Datasets that ship a Python loading script (require trust_remote_code=True
+# until datasets ≥ 4.0 removes script support entirely).
+_SCRIPT_LOADER_REPOS: set[str] = {
+    "takala/financial_phrasebank",
+}
+
+
+def _normalize_example(ex: dict, fields: dict[str, str], source: str, repo: str) -> dict:
     return {
         "text": ex[fields["text"]],
-        "label": canonicalize_label(ex[fields["label"]]),
+        "label": canonicalize_label(ex[fields["label"]], repo=repo),
         "source": source,
     }
 
@@ -50,6 +57,8 @@ def load_one(repo: str, revision: str | None, config: str | None = None,
         kwargs["name"] = config
     if split is not None:
         kwargs["split"] = split
+    if repo in _SCRIPT_LOADER_REPOS:
+        kwargs["trust_remote_code"] = True
     ds = load_dataset(repo, **kwargs)
     if isinstance(ds, DatasetDict):
         return ds
@@ -62,7 +71,7 @@ def normalize_dataset(ds: Dataset, repo: str, source_tag: str) -> Dataset:
         raise KeyError(
             f"No field mapping for {repo}; add it to DATASET_FIELD_MAP in findpo/data.py."
         )
-    return ds.map(lambda ex: _normalize_example(ex, fields, source_tag),
+    return ds.map(lambda ex: _normalize_example(ex, fields, source_tag, repo),
                   remove_columns=ds.column_names)
 
 

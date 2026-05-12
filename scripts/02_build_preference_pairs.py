@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from findpo.labels import LABELS, format_prompt_messages  # noqa: E402
 from findpo.sanity import check_preference_pair_format  # noqa: E402
 from findpo.seeding import set_seed  # noqa: E402
+from findpo.tokenizer_setup import setup_tokenizer  # noqa: E402
 
 
 def _strategy_a_rejected(true_label: str, rng: random.Random) -> str:
@@ -43,9 +44,9 @@ def _predict_sft(texts: list[str], system: str, sft_dir: Path, base_model: str,
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
     tok = AutoTokenizer.from_pretrained(base_model)
-    if tok.pad_token is None:
-        tok.pad_token = tok.eos_token
-    tok.padding_side = "left"
+    # Right-padding: this function does a forward pass only (no generation),
+    # so we want the LAST REAL token's logits at `attention_mask.sum(-1) - 1`.
+    setup_tokenizer(tok, padding_side="right")
 
     bnb = BitsAndBytesConfig(
         load_in_4bit=True, bnb_4bit_quant_type="nf4",
@@ -146,8 +147,7 @@ def main() -> int:
     # chosen/rejected are bare label strings (TRL handles concatenation).
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(cfg["model"]["name"])
-    if tok.pad_token is None:
-        tok.pad_token = tok.eos_token
+    setup_tokenizer(tok, padding_side="right")   # rendering only — padding unused
 
     records: list[dict] = []
     for t, true_lbl, rej in zip(texts, true_labels, rejecteds):

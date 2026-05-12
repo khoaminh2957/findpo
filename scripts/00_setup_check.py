@@ -23,6 +23,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from findpo.env_info import collect_env_info  # noqa: E402
 from findpo.labels import format_prompt_messages  # noqa: E402
 from findpo.sanity import check_tokenizer_alignment  # noqa: E402
+from findpo.tokenizer_setup import (LLAMA3_PAD_TOKEN, LLAMA3_PAD_TOKEN_ID,
+                                     setup_tokenizer)  # noqa: E402
 
 
 def section(title: str) -> None:
@@ -74,6 +76,14 @@ def main() -> int:
     try:
         from transformers import AutoTokenizer
         tok = AutoTokenizer.from_pretrained(args.model)
+        setup_tokenizer(tok, padding_side="right")
+        # Confirm the special pad token actually exists in this checkpoint's vocab.
+        vocab = tok.get_vocab()
+        if LLAMA3_PAD_TOKEN not in vocab or vocab[LLAMA3_PAD_TOKEN] != LLAMA3_PAD_TOKEN_ID:
+            failures.append(
+                f"Expected {LLAMA3_PAD_TOKEN}={LLAMA3_PAD_TOKEN_ID} in vocab; "
+                f"got id={vocab.get(LLAMA3_PAD_TOKEN)}. tokenizer_setup needs update."
+            )
         ok, details = check_tokenizer_alignment(
             tok,
             system="You are a financial sentiment classifier.",
@@ -96,13 +106,29 @@ def main() -> int:
                 bnb_4bit_compute_dtype=torch.bfloat16,
                 bnb_4bit_use_double_quant=True,
             )
-            model = AutoModelForCausalLM.from_pretrained(
-                args.model,
-                quantization_config=bnb,
-                device_map="auto",
-                attn_implementation="flash_attention_2",
-            )
+            try:
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model,
+                    quantization_config=bnb,
+                    device_map="auto",
+                    attn_implementation="flash_attention_2",
+                )
+                print("attn_implementation = flash_attention_2")
+            except (ImportError, ValueError) as e:
+                print(f"[WARN] flash_attention_2 unavailable ({e}); falling back to sdpa.")
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model,
+                    quantization_config=bnb,
+                    device_map="auto",
+                    attn_implementation="sdpa",
+                )
+                failures.append(
+                    "flash_attention_2 not installed. Run "
+                    "`pip install flash-attn==2.7.2.post1 --no-build-isolation` "
+                    "or change attn_implementation in configs to 'sdpa'."
+                )
             tok = AutoTokenizer.from_pretrained(args.model)
+            setup_tokenizer(tok, padding_side="right")
             msgs = format_prompt_messages(
                 system="You are a financial sentiment classifier.",
                 user_text="The company reported record profits.",

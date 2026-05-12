@@ -1,8 +1,13 @@
 """Label canonicalisation + prompt formatting — single source of truth.
 
-Every dataset uses different integer/string labels for sentiment. To avoid
-the tokenizer-alignment bug called out in R8.e, ALL training and eval code
-goes through this module — never inline a label string.
+Every dataset uses different integer/string label encodings for sentiment.
+To avoid the tokenizer-alignment / off-by-one bugs called out in R8.e and
+R8.f, ALL training and eval code goes through this module — never inline a
+label string.
+
+Per-dataset int→canonical maps live in `INT_LABEL_MAPS` because the integer
+encodings differ across datasets (e.g. TFNS uses {0:Bearish, 1:Bullish,
+2:Neutral} — NOT the same order as FPB).
 """
 from __future__ import annotations
 
@@ -12,24 +17,46 @@ LABELS: tuple[str, ...] = ("negative", "neutral", "positive")
 LABEL2ID: dict[str, int] = {lbl: i for i, lbl in enumerate(LABELS)}
 ID2LABEL: dict[int, str] = {i: lbl for i, lbl in enumerate(LABELS)}
 
+# Per-dataset integer-label encodings — verified against dataset cards
+# (FinDPO repro audit 2026-05-12).
+INT_LABEL_MAPS: dict[str, dict[int, str]] = {
+    # FPB: ClassLabel(names=["negative", "neutral", "positive"]) — natural order.
+    "takala/financial_phrasebank": {0: "negative", 1: "neutral", 2: "positive"},
+    # TFNS: dataset card lists LABEL_0=Bearish, LABEL_1=Bullish, LABEL_2=Neutral.
+    "zeroshot/twitter-financial-news-sentiment": {0: "negative", 1: "positive", 2: "neutral"},
+    # gpt_news — pin once paper repo confirmed.
+}
 
-def canonicalize_label(raw) -> str:
-    """Map dataset-specific label encodings → canonical string in LABELS."""
+_STR_LABEL_MAP: dict[str, str] = {
+    "negative": "negative", "neutral": "neutral", "positive": "positive",
+    "bearish": "negative", "bullish": "positive",
+    "label_0": "negative", "label_1": "neutral", "label_2": "positive",  # FPB ordering
+}
+
+
+def canonicalize_label(raw, repo: str | None = None) -> str:
+    """Map dataset-specific encoding → canonical {negative, neutral, positive}.
+
+    `repo` is required when `raw` is an int (encodings differ per dataset).
+    For strings the mapping is unambiguous so `repo` is optional.
+    """
     if isinstance(raw, str):
         s = raw.strip().lower()
-        if s in LABEL2ID:
-            return s
-        # TFNS uses LABEL_0/1/2 in some HF mirrors
-        if s in ("label_0", "0", "bearish"):
-            return "negative"
-        if s in ("label_1", "1", "neutral"):
-            return "neutral"
-        if s in ("label_2", "2", "bullish"):
-            return "positive"
+        if s in _STR_LABEL_MAP:
+            return _STR_LABEL_MAP[s]
         raise ValueError(f"Unknown string label: {raw!r}")
     if isinstance(raw, (int, bool)):
-        # FPB: 0=neg, 1=neu, 2=pos. Confirm per-dataset before relying on this.
-        return ID2LABEL[int(raw)]
+        if repo is None:
+            raise ValueError(
+                f"Integer label {raw!r} given without repo. Cannot canonicalize — "
+                "encodings differ per dataset (TFNS swaps positive/neutral)."
+            )
+        m = INT_LABEL_MAPS.get(repo)
+        if m is None:
+            raise KeyError(
+                f"No integer→label map for {repo}. Add it to INT_LABEL_MAPS in findpo/labels.py."
+            )
+        return m[int(raw)]
     raise TypeError(f"Unsupported label type: {type(raw)}")
 
 
@@ -51,5 +78,7 @@ def format_assistant_message(label: str) -> dict:
 def class_distribution(labels: Iterable[str]) -> dict[str, int]:
     out = {lbl: 0 for lbl in LABELS}
     for lbl in labels:
+        # All values in `labels` should already be canonical strings; if not,
+        # this will raise — surface the bug rather than silently miscount.
         out[canonicalize_label(lbl)] += 1
     return out

@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from .labels import LABELS, format_prompt_messages
+from .tokenizer_setup import setup_tokenizer
 
 
 def _parse_label(raw: str) -> str | None:
@@ -37,9 +38,7 @@ def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
 
     base_name = cfg["model"]["name"]
     tok = AutoTokenizer.from_pretrained(base_name)
-    if tok.pad_token is None:
-        tok.pad_token = tok.eos_token
-    tok.padding_side = "left"
+    setup_tokenizer(tok, padding_side="left")   # generation → left pad
 
     bnb = BitsAndBytesConfig(
         load_in_4bit=True, bnb_4bit_quant_type="nf4",

@@ -73,11 +73,14 @@ train:
   gradient_checkpointing: true
   optim: "paged_adamw_32bit"
   logging_steps: 10
-  save_steps: 500
+  save_strategy: "epoch"          # must match eval_strategy for load_best_model_at_end
   save_total_limit: 3
   eval_strategy: "epoch"
   load_best_model_at_end: true
-  metric_for_best_model: "eval_macro_f1"
+  # DPOTrainer auto-logs eval_rewards/accuracies = % of pairs where
+  # chosen-reward > rejected-reward. This is the natural quantity to
+  # maximize during DPO training.
+  metric_for_best_model: "eval_rewards/accuracies"
   greater_is_better: true
   report_to: ["wandb"]
   # DPO-specific TRL knobs
