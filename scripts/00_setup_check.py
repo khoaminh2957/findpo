@@ -92,19 +92,31 @@ def main() -> int:
         print(json.dumps(details, indent=2))
         if not ok:
             failures.append(f"Tokenizer alignment failed: {details['missing']}")
-        # BOS-strip sanity: rendered text must produce single-BOS sequence.
+        # Single-BOS sanity: the canonical pipeline path is
+        #   render_chat → tokenize(add_special_tokens=False)
+        # and must produce exactly one BOS at position 0 (coming from the
+        # literal in the chat-template text). Auto-BOS via add_special_tokens
+        # =True would duplicate it.
         msgs = [
             {"role": "system", "content": "S"},
             {"role": "user", "content": "U"},
             {"role": "assistant", "content": "positive"},
         ]
         rendered = render_chat(tok, msgs, add_generation_prompt=False)
-        ids = tok(rendered, add_special_tokens=True)["input_ids"]
-        n_leading_bos = sum(1 for i in ids[:3] if i == tok.bos_token_id)
-        if n_leading_bos != 1:
+        ids_canonical = tok(rendered, add_special_tokens=False)["input_ids"]
+        ids_default = tok(rendered, add_special_tokens=True)["input_ids"]
+        n_bos_canon = sum(1 for i in ids_canonical[:3] if i == tok.bos_token_id)
+        n_bos_default = sum(1 for i in ids_default[:3] if i == tok.bos_token_id)
+        if n_bos_canon != 1:
             failures.append(
-                f"BOS strip broken: expected 1 leading BOS, got {n_leading_bos}. "
-                f"first ids = {ids[:5]}"
+                f"Canonical (add_special_tokens=False) path has {n_bos_canon} "
+                f"BOS at start, expected 1. first ids = {ids_canonical[:5]}"
+            )
+        if n_bos_default <= n_bos_canon:
+            failures.append(
+                "Default tokenizer path does NOT add an extra BOS — the "
+                "footgun assumption is wrong. Re-audit tokenizer_setup.py. "
+                f"canon BOS={n_bos_canon}, default BOS={n_bos_default}"
             )
         # Trailing-eot sanity: a healthy chat template ends a closed assistant
         # turn with <|eot_id|>, not a stray generation prompt.
@@ -156,7 +168,7 @@ def main() -> int:
                 user_text="The company reported record profits.",
             )
             prompt = render_chat(tok, msgs, add_generation_prompt=True)
-            ids = tok(prompt, return_tensors="pt").to(model.device)
+            ids = tok(prompt, return_tensors="pt", add_special_tokens=False).to(model.device)
             with torch.no_grad():
                 out = model(**ids)
             print(f"logits shape: {tuple(out.logits.shape)}, dtype: {out.logits.dtype}")

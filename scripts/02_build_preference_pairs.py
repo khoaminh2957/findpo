@@ -79,8 +79,11 @@ def _predict_sft(texts: list[str], system: str, sft_dir: Path, base_model: str,
                         add_generation_prompt=True)
             for t in batch_texts
         ]
+        # add_special_tokens=False — prompts already contain the literal
+        # <|begin_of_text|>. Adding another via the post-processor would
+        # double-BOS the sequence and shift the last-token logits.
         enc = tok(prompts, return_tensors="pt", padding=True, truncation=True,
-                  max_length=512).to(model.device)
+                  max_length=512, add_special_tokens=False).to(model.device)
         with torch.no_grad():
             out = model(**enc)
         # logits at the last non-pad position of each row

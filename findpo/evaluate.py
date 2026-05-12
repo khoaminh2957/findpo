@@ -61,8 +61,10 @@ def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
             for ex in batch
         ]
         max_seq = cfg["train"].get("max_seq_length") or cfg["train"].get("max_length", 512)
+        # add_special_tokens=False — prompts already contain the literal
+        # <|begin_of_text|> from the chat template. Auto-BOS would duplicate it.
         enc = tok(prompts, return_tensors="pt", padding=True, truncation=True,
-                  max_length=max_seq).to(model.device)
+                  max_length=max_seq, add_special_tokens=False).to(model.device)
         with torch.no_grad():
             out = model.generate(**enc, max_new_tokens=max_new_tokens,
                                  do_sample=False, pad_token_id=tok.pad_token_id)

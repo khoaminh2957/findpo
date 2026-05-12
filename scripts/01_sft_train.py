@@ -40,9 +40,11 @@ def _load_splits(cfg: dict, splits_dir: Path):
 def _format_for_sft(example: dict, tokenizer, system: str) -> dict:
     """Apply Llama-3 chat template; only the assistant turn carries the label.
 
-    Uses render_chat to strip the literal BOS prefix — the SFTTrainer's
-    internal tokenizer call will re-add it once via the post-processor, so
-    the final sequence has exactly one BOS at position 0.
+    Returns the chat-template text VERBATIM (including the literal
+    `<|begin_of_text|>` at position 0). The SFTConfig's
+    `dataset_kwargs={"add_special_tokens": False}` ensures SFTTrainer
+    tokenizes WITHOUT auto-prepending BOS, so the final sequence has
+    exactly one BOS — coming from the literal in the rendered text.
     """
     msgs = format_prompt_messages(system, example["text"]) + [
         {"role": "assistant", "content": example["label"]},
@@ -185,6 +187,13 @@ def main() -> int:
         run_name=f"{cfg['experiment']['id']}_seed{args.seed}",
         packing=False,
         dataset_text_field="text",
+        # Disable the tokenizer's auto-BOS post-processor. Our chat-template
+        # text already contains the literal `<|begin_of_text|>` at position 0,
+        # and DPOTrainer for decoder-only models hard-codes
+        # add_special_tokens=False — passing False here keeps SFT and DPO
+        # sequences bit-identical in their prompt prefix.
+        # See findpo/tokenizer_setup.py (footgun #2) for the full reasoning.
+        dataset_kwargs={"add_special_tokens": False},
     )
 
     # Completion-only masking: train CE loss ONLY on assistant tokens, not on
