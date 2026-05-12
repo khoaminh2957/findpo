@@ -33,7 +33,7 @@ def section(title: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
+    parser.add_argument("--model", default="meta-llama/Llama-3.1-8B-Instruct")
     parser.add_argument("--skip-model", action="store_true",
                         help="Skip model load (use for non-GPU dry runs).")
     parser.add_argument("--skip-wandb", action="store_true")

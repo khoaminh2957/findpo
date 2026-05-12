@@ -9,7 +9,7 @@ experiment:
   paper_phase: "phase-1"
 
 model:
-  name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  name: "meta-llama/Llama-3.1-8B-Instruct"
   revision: null            # TODO: fill commit hash after first download on remote
   trust_remote_code: false
   attn_implementation: "flash_attention_2"
