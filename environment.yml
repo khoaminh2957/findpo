@@ -1,0 +1,13 @@
+name: findpo
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch=2.5.1
+  - pytorch-cuda=12.4
+  - cuda-toolkit=12.4
+  - pip:
+      - -r requirements.txt

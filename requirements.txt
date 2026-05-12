@@ -1,0 +1,31 @@
+# FinDPO reproduction — pinned per R1.
+# Torch is installed separately with the right CUDA wheel (see README).
+#
+# Stack frozen on 2026-05-12. After install on REMOTE_GPU run
+#   pip freeze > requirements.lock.txt
+# and commit that file alongside this one.
+
+transformers==4.46.3
+trl==0.12.2
+peft==0.14.0
+accelerate==1.2.1
+bitsandbytes==0.45.0
+datasets==3.2.0
+tokenizers==0.20.3
+sentencepiece==0.2.0
+safetensors==0.4.5
+
+# Tracking
+wandb==0.19.1
+
+# Eval / utilities
+scikit-learn==1.5.2
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==18.1.0
+pyyaml==6.0.2
+tqdm==4.67.1
+
+# Plots (Phase 4)
+matplotlib==3.9.3
+seaborn==0.13.2

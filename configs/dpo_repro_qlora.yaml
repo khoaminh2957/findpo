@@ -1,0 +1,101 @@
+# Phase 2 — DPO reproduction (QLoRA path).
+# Reference model is the SAME quantized base with LoRA adapter disabled
+# (TRL DPOTrainer handles this automatically when ref_model=None and peft_config is set).
+# This is the Zephyr / alignment-handbook recipe.
+
+experiment:
+  id: "dpo_repro_qlora"
+  description: "DPO reproduction; QLoRA NF4; rejected = SFT-confused class (Strategy B)"
+  paper_phase: "phase-2"
+
+model:
+  name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  revision: null
+  trust_remote_code: false
+  attn_implementation: "flash_attention_2"
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_use_double_quant: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+datasets:
+  # Same as SFT — must use identical train/eval split so DPO and SFT are comparable.
+  fpb: { repo: "takala/financial_phrasebank", config: "sentences_50agree", revision: null }
+  tfns: { repo: "zeroshot/twitter-financial-news-sentiment", revision: null }
+  gpt_news: { repo: "TODO_VERIFY_FROM_PAPER", revision: null }
+
+split:
+  train_ratio: 0.8
+  split_seed: 42
+
+preference_pairs:
+  strategy: "B"             # A = random rejected, B = SFT-confused rejected
+  sft_checkpoint_for_strategy_b: "results/sft_baseline_seed42/model"
+  # If strategy B: rejected is the top non-true class predicted by the SFT model.
+  # If multiple ties, pick the wrong class with highest logit deterministically.
+
+prompt:
+  system: "You are a financial sentiment classifier. Read the financial text and respond with exactly one word: positive, neutral, or negative."
+  user_template: "{text}"
+
+train:
+  output_dir_base: "results"
+  seed: 42
+  beta: 0.1                          # DPO temperature; sweep 0.05/0.1/0.3 if pass criterion not met
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8     # effective batch 8
+  per_device_eval_batch_size: 4
+  learning_rate: 5.0e-6              # QLoRA-DPO typical (paper says 5e-7 for full FT; LoRA needs 10x)
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.0
+  max_length: 512
+  max_prompt_length: 384
+  bf16: true
+  gradient_checkpointing: true
+  optim: "paged_adamw_32bit"
+  logging_steps: 10
+  save_steps: 500
+  save_total_limit: 3
+  eval_strategy: "epoch"
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_macro_f1"
+  greater_is_better: true
+  report_to: ["wandb"]
+  # DPO-specific TRL knobs
+  loss_type: "sigmoid"               # original DPO loss
+  label_smoothing: 0.0
+  generate_during_eval: false
+  precompute_ref_log_probs: false
+
+eval:
+  on_dataset: "fpb"
+  test_split: "test"
+  metrics:
+    - accuracy
+    - macro_f1
+    - per_class_precision
+    - per_class_recall
+    - confusion_matrix
+
+wandb:
+  project: "findpo-repro"
+  tags: ["phase-2", "dpo", "qlora", "llama-3.1-8b", "strategy-b"]

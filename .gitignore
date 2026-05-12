@@ -1,0 +1,37 @@
+# --- byte/cache ---
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.ipynb_checkpoints/
+
+# --- env ---
+.venv/
+venv/
+.env
+.python-version
+
+# --- large artifacts (must never land in git) ---
+results/
+logs/
+checkpoints/
+wandb/
+data/raw/
+data/cache/
+data/splits/
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.arrow
+
+# --- secrets ---
+*.token
+hf_token*
+.netrc
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

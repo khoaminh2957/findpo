@@ -1,0 +1,100 @@
+"""Shared classification eval — used by both SFT and DPO eval scripts.
+
+The trained artifact is always a base model + LoRA adapter at <run_dir>/model.
+This module is the single source of truth so SFT vs DPO numbers are computed
+identically (Pineau et al. 2021 — "report the same metric the same way").
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import yaml
+
+from .labels import LABELS, format_prompt_messages
+
+
+def _parse_label(raw: str) -> str | None:
+    s = raw.strip().lower()
+    for lbl in LABELS:
+        if s.startswith(lbl) or lbl in s.split():
+            return lbl
+    return None
+
+
+def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
+             batch_size: int = 8, max_new_tokens: int = 4) -> dict:
+    import torch
+    from datasets import load_from_disk
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from sklearn.metrics import (accuracy_score, classification_report,
+                                  confusion_matrix, f1_score)
+
+    cfg = yaml.safe_load((run_dir / "config.yaml").read_text())
+    sys_prompt = cfg["prompt"]["system"]
+    test = load_from_disk(str(splits_dir / f"{eval_dataset}_test"))
+
+    base_name = cfg["model"]["name"]
+    tok = AutoTokenizer.from_pretrained(base_name)
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+    tok.padding_side = "left"
+
+    bnb = BitsAndBytesConfig(
+        load_in_4bit=True, bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True,
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        base_name, quantization_config=bnb, device_map="auto",
+        attn_implementation=cfg["model"].get("attn_implementation"),
+    )
+    model = PeftModel.from_pretrained(base, str(run_dir / "model"))
+    model.eval()
+
+    preds = []
+    n_unparseable = 0
+    for i in range(0, len(test), batch_size):
+        batch = test.select(range(i, min(i + batch_size, len(test))))
+        prompts = [
+            tok.apply_chat_template(
+                format_prompt_messages(sys_prompt, ex["text"]),
+                tokenize=False, add_generation_prompt=True,
+            )
+            for ex in batch
+        ]
+        max_seq = cfg["train"].get("max_seq_length") or cfg["train"].get("max_length", 512)
+        enc = tok(prompts, return_tensors="pt", padding=True, truncation=True,
+                  max_length=max_seq).to(model.device)
+        with torch.no_grad():
+            out = model.generate(**enc, max_new_tokens=max_new_tokens,
+                                 do_sample=False, pad_token_id=tok.pad_token_id)
+        gen = out[:, enc["input_ids"].shape[1]:]
+        decoded = tok.batch_decode(gen, skip_special_tokens=True)
+        for ex, raw in zip(batch, decoded):
+            pred = _parse_label(raw)
+            if pred is None:
+                n_unparseable += 1
+                pred = "neutral"
+            preds.append({"text": ex["text"], "true": ex["label"], "pred": pred, "raw": raw})
+
+    y_true = [d["true"] for d in preds]
+    y_pred = [d["pred"] for d in preds]
+    metrics = {
+        "eval_dataset": eval_dataset,
+        "n": len(preds),
+        "accuracy": accuracy_score(y_true, y_pred),
+        "macro_f1": f1_score(y_true, y_pred, labels=list(LABELS), average="macro"),
+        "n_unparseable": n_unparseable,
+        "per_class": classification_report(y_true, y_pred, labels=list(LABELS),
+                                            output_dict=True, zero_division=0),
+        "confusion_matrix": {
+            "labels": list(LABELS),
+            "matrix": confusion_matrix(y_true, y_pred, labels=list(LABELS)).tolist(),
+        },
+    }
+    (run_dir / f"eval_{eval_dataset}.json").write_text(json.dumps(metrics, indent=2))
+    with (run_dir / f"predictions_{eval_dataset}.jsonl").open("w") as f:
+        for d in preds:
+            f.write(json.dumps(d) + "\n")
+    return metrics
