@@ -22,7 +22,7 @@ from findpo.labels import LABELS, format_prompt_messages  # noqa: E402
 from findpo.paths import run_paths  # noqa: E402
 from findpo.sanity import check_class_balance, check_train_test_no_overlap, check_tokenizer_alignment  # noqa: E402
 from findpo.seeding import set_seed  # noqa: E402
-from findpo.tokenizer_setup import setup_tokenizer  # noqa: E402
+from findpo.tokenizer_setup import render_chat, setup_tokenizer  # noqa: E402
 from findpo.tracking import DualLogger, WandbCfg  # noqa: E402
 
 
@@ -38,11 +38,29 @@ def _load_splits(cfg: dict, splits_dir: Path):
 
 
 def _format_for_sft(example: dict, tokenizer, system: str) -> dict:
-    """Apply Llama-3 chat template; only the assistant turn carries the label."""
+    """Apply Llama-3 chat template; only the assistant turn carries the label.
+
+    Uses render_chat to strip the literal BOS prefix — the SFTTrainer's
+    internal tokenizer call will re-add it once via the post-processor, so
+    the final sequence has exactly one BOS at position 0.
+    """
     msgs = format_prompt_messages(system, example["text"]) + [
         {"role": "assistant", "content": example["label"]},
     ]
-    return {"text": tokenizer.apply_chat_template(msgs, tokenize=False)}
+    text = render_chat(tokenizer, msgs, add_generation_prompt=False)
+    # Defensive: a healthy Llama-3 template ends each assistant turn with
+    # <|eot_id|>. If it doesn't, the template is broken (e.g. a third-party
+    # mirror that hard-codes a trailing generation prompt) — refuse to train
+    # because completion-only masking would compute loss on the wrong tokens.
+    if not text.rstrip().endswith(tokenizer.eos_token):
+        raise RuntimeError(
+            "Chat template did not end the assistant turn with eos. "
+            "This usually means the tokenizer's chat_template appends a "
+            "trailing generation prompt regardless of add_generation_prompt. "
+            "Refusing to produce broken training data. "
+            f"Last 80 chars: {text[-80:]!r}"
+        )
+    return {"text": text}
 
 
 def main() -> int:

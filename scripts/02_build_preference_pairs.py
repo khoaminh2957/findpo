@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from findpo.labels import LABELS, format_prompt_messages  # noqa: E402
 from findpo.sanity import check_preference_pair_format  # noqa: E402
 from findpo.seeding import set_seed  # noqa: E402
-from findpo.tokenizer_setup import setup_tokenizer  # noqa: E402
+from findpo.tokenizer_setup import render_chat, setup_tokenizer  # noqa: E402
 
 
 def _strategy_a_rejected(true_label: str, rng: random.Random) -> str:
@@ -75,10 +75,8 @@ def _predict_sft(texts: list[str], system: str, sft_dir: Path, base_model: str,
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i + batch_size]
         prompts = [
-            tok.apply_chat_template(
-                format_prompt_messages(system, t),
-                tokenize=False, add_generation_prompt=True,
-            )
+            render_chat(tok, format_prompt_messages(system, t),
+                        add_generation_prompt=True)
             for t in batch_texts
         ]
         enc = tok(prompts, return_tensors="pt", padding=True, truncation=True,
@@ -151,10 +149,8 @@ def main() -> int:
 
     records: list[dict] = []
     for t, true_lbl, rej in zip(texts, true_labels, rejecteds):
-        prompt = tok.apply_chat_template(
-            format_prompt_messages(sys_prompt, t),
-            tokenize=False, add_generation_prompt=True,
-        )
+        prompt = render_chat(tok, format_prompt_messages(sys_prompt, t),
+                              add_generation_prompt=True)
         records.append({"prompt": prompt, "chosen": true_lbl, "rejected": rej})
 
     ok, det = check_preference_pair_format(records)

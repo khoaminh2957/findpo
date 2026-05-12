@@ -24,7 +24,7 @@ from findpo.env_info import collect_env_info  # noqa: E402
 from findpo.labels import format_prompt_messages  # noqa: E402
 from findpo.sanity import check_tokenizer_alignment  # noqa: E402
 from findpo.tokenizer_setup import (LLAMA3_PAD_TOKEN, LLAMA3_PAD_TOKEN_ID,
-                                     setup_tokenizer)  # noqa: E402
+                                     render_chat, setup_tokenizer)  # noqa: E402
 
 
 def section(title: str) -> None:
@@ -92,6 +92,28 @@ def main() -> int:
         print(json.dumps(details, indent=2))
         if not ok:
             failures.append(f"Tokenizer alignment failed: {details['missing']}")
+        # BOS-strip sanity: rendered text must produce single-BOS sequence.
+        msgs = [
+            {"role": "system", "content": "S"},
+            {"role": "user", "content": "U"},
+            {"role": "assistant", "content": "positive"},
+        ]
+        rendered = render_chat(tok, msgs, add_generation_prompt=False)
+        ids = tok(rendered, add_special_tokens=True)["input_ids"]
+        n_leading_bos = sum(1 for i in ids[:3] if i == tok.bos_token_id)
+        if n_leading_bos != 1:
+            failures.append(
+                f"BOS strip broken: expected 1 leading BOS, got {n_leading_bos}. "
+                f"first ids = {ids[:5]}"
+            )
+        # Trailing-eot sanity: a healthy chat template ends a closed assistant
+        # turn with <|eot_id|>, not a stray generation prompt.
+        if not rendered.rstrip().endswith(tok.eos_token):
+            failures.append(
+                "Chat template appends a trailing generation prompt even with "
+                "add_generation_prompt=False — refuse to train. "
+                f"Last 80 chars: {rendered[-80:]!r}"
+            )
     except Exception as e:
         failures.append(f"Tokenizer load error: {e}")
 
@@ -133,7 +155,7 @@ def main() -> int:
                 system="You are a financial sentiment classifier.",
                 user_text="The company reported record profits.",
             )
-            prompt = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+            prompt = render_chat(tok, msgs, add_generation_prompt=True)
             ids = tok(prompt, return_tensors="pt").to(model.device)
             with torch.no_grad():
                 out = model(**ids)

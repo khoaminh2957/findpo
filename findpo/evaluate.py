@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 from .labels import LABELS, format_prompt_messages
-from .tokenizer_setup import setup_tokenizer
+from .tokenizer_setup import render_chat, setup_tokenizer
 
 
 def _parse_label(raw: str) -> str | None:
@@ -56,10 +56,8 @@ def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
     for i in range(0, len(test), batch_size):
         batch = test.select(range(i, min(i + batch_size, len(test))))
         prompts = [
-            tok.apply_chat_template(
-                format_prompt_messages(sys_prompt, ex["text"]),
-                tokenize=False, add_generation_prompt=True,
-            )
+            render_chat(tok, format_prompt_messages(sys_prompt, ex["text"]),
+                        add_generation_prompt=True)
             for ex in batch
         ]
         max_seq = cfg["train"].get("max_seq_length") or cfg["train"].get("max_length", 512)
