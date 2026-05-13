@@ -8,7 +8,7 @@ This repo is the baseline scaffold for downstream research on alternative label 
 
 | Item | Choice | Notes |
 |---|---|---|
-| Base model | `meta-llama/Llama-3.1-8B-Instruct` | Paper used 3.0; 3.1 has same architecture, deviation logged |
+| Base model | `unsloth/Meta-Llama-3.1-8B-Instruct` | Paper used 3.0; 3.1 has same architecture, deviation logged |
 | Training path | QLoRA (NF4 4-bit + LoRA r=16) | No full fine-tune |
 | Phases | 0 → 1 (SFT) → 2 (DPO) → 4 (docs) | Phase 3 (trading sim) out of scope |
 | Seeds | 42, 123, 7 (mean ± std) | Three runs per condition |

@@ -9,10 +9,10 @@ experiment:
   paper_phase: "phase-2"
 
 model:
-  name: "meta-llama/Llama-3.1-8B-Instruct"
+  name: "unsloth/Meta-Llama-3.1-8B-Instruct"
   revision: null
   trust_remote_code: false
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"  # sm_120 + cu128 + cp312: no prebuilt flash-attn wheel for torch 2.7, source build skipped — RTX 5090 memory-bound QLoRA absorbs sdpa overhead
 
 quantization:
   load_in_4bit: true
