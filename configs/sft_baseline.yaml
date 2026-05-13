@@ -62,8 +62,6 @@ split:
 
 prompt:
   system: "You are a financial sentiment classifier. Read the financial text and respond with exactly one word: positive, neutral, or negative."
-  user_template: "{text}"
-  assistant_template: "{label}"
 
 train:
   output_dir_base: "results"

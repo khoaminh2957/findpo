@@ -53,21 +53,36 @@ reports/                 Phase summary reports + final REPRODUCTION_REPORT.md
 floors below are forced by Blackwell support — earlier `bitsandbytes` and
 `flash-attn` releases ship no sm_120 kernels and will crash at model load.
 
-1. `conda env create -f environment.yml && conda activate findpo`
-   - Pinned: PyTorch ≥ 2.7.0 + CUDA 12.8 (Blackwell-capable). Driver must be
-     ≥ 570.x. Verify with `nvidia-smi`.
-2. `pip install -r requirements.txt` (handles bitsandbytes 0.46.1+ etc.)
-3. `pip install flash-attn==2.7.4.post1 --no-build-isolation`
-   - If the upstream wheel still lacks sm_120 binaries, build from source
-     against your CUDA 12.8 toolchain, or grab a community wheel
-     (e.g. https://huggingface.co/lldacing for prebuilt sm_120 wheels).
-   - If unavailable, the configs can fall back to `attn_implementation:
-     "sdpa"` — `scripts/00_setup_check.py` will detect and warn.
-4. `huggingface-cli login`  — paste HF token with read access; the Llama-3.1
-   repo must be approved on your HF account.
-5. `wandb login` — paste API key from <https://wandb.ai/authorize>.
-6. `python scripts/00_setup_check.py` — must exit 0.
-7. `pip freeze > requirements.lock.txt && git add requirements.lock.txt`
+**Pip-first install (recommended for cloud rentals like Vast.ai):**
+
+```bash
+# 1. Verify GPU + driver. Need driver ≥ 570.x for Blackwell.
+nvidia-smi
+# 2. Fresh venv (Vast.ai images usually have python 3.10+).
+python -m venv ~/findpo-env && source ~/findpo-env/bin/activate
+# 3. PyTorch first, from the cu128 channel.
+pip install --extra-index-url https://download.pytorch.org/whl/cu128 torch==2.7.0
+# 4. All other pinned deps (transformers, trl, peft, bitsandbytes 0.46.1, …).
+pip install -r requirements.txt
+# 5. flash-attn — built against the torch installed above.
+pip install flash-attn==2.7.4.post1 --no-build-isolation
+#    If pip can't find a sm_120 wheel, grab a community prebuilt:
+#      pip install https://huggingface.co/lldacing/flash-attention-windows-wheel/.../flash_attn-...-cp310-cp310-linux_x86_64.whl
+#    or build from source. Last-resort fallback: switch configs to
+#    attn_implementation: "sdpa" (slower but no sm_120 dep) — the train
+#    scripts also auto-fallback at runtime if flash-attn import fails.
+# 6. HF auth.
+huggingface-cli login           # paste your HF token (Llama-3.1-8B-Instruct must be granted)
+# 7. W&B.
+wandb login                     # paste API key from https://wandb.ai/authorize
+# 8. Phase-0 smoke test.
+python scripts/00_setup_check.py    # must exit 0
+# 9. Freeze the exact versions for reproducibility.
+pip freeze > requirements.lock.txt && git add requirements.lock.txt
+```
+
+`environment.yml` (conda) is provided as an alternative install path and
+pins the same versions.
 
 ## Run a phase
 

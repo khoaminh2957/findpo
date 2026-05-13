@@ -47,13 +47,15 @@ split:
 
 preference_pairs:
   strategy: "B"             # A = random rejected, B = SFT-confused rejected
-  sft_checkpoint_for_strategy_b: "results/sft_baseline_seed42/model"
-  # If strategy B: rejected is the top non-true class predicted by the SFT model.
-  # If multiple ties, pick the wrong class with highest logit deterministically.
+  # Strategy B: rejected = top non-true class predicted by the SFT model;
+  # the SFT run dir is passed via the --sft-run-dir CLI flag on
+  # scripts/02_build_preference_pairs.py (NOT a config field — keeping the
+  # canonical path in one place avoids drift). The expected directory is
+  # results/exp_sft_baseline_seed<N>/ (note the exp_ prefix added by
+  # findpo.paths.run_paths).
 
 prompt:
   system: "You are a financial sentiment classifier. Read the financial text and respond with exactly one word: positive, neutral, or negative."
-  user_template: "{text}"
 
 train:
   output_dir_base: "results"
