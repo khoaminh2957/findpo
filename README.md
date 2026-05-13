@@ -49,9 +49,28 @@ reports/                 Phase summary reports + final REPRODUCTION_REPORT.md
 
 ## Setup (REMOTE_GPU)
 
-**Hardware:** target is 4× RTX PRO 6000 Blackwell (sm_120). The version
-floors below are forced by Blackwell support — earlier `bitsandbytes` and
-`flash-attn` releases ship no sm_120 kernels and will crash at model load.
+**Hardware:** target is RTX 5090 / RTX PRO 6000 Blackwell (sm_120) on
+Vast.ai. The version floors below are forced by Blackwell support —
+earlier `bitsandbytes` and `flash-attn` releases ship no sm_120 kernels
+and will crash at model load.
+
+**Vast.ai Docker template (verified 2026-05-13 via Docker Hub):**
+
+```
+pytorch/pytorch:2.7.0-cuda12.8-cudnn9-devel
+```
+
+This image matches the pinned `torch==2.7.0` + CUDA 12.8 (Blackwell-capable)
+exactly. `devel` variant ships nvcc + CUDA headers needed to build
+flash-attn from source. Image size ~8GB; allocate ≥100GB disk on Vast.ai.
+
+DO NOT use `vastai/pytorch` (outdated to PyTorch 1.0 / CUDA 10.0).
+
+Alternative if you want flash-attn pre-built (saves 30-60min build):
+`axolotlai/axolotl-cloud-term:main-py3.11-cu128-2.9.1` — but ships
+PyTorch 2.9.1 (not exact match) and 14GB; you'll need to
+`pip install -r requirements.txt --force-reinstall` to overwrite
+the Axolotl-installed library versions with our pinned ones.
 
 **Pip-first install (recommended for cloud rentals like Vast.ai):**
 
@@ -62,15 +81,21 @@ nvidia-smi
 python -m venv ~/findpo-env && source ~/findpo-env/bin/activate
 # 3. PyTorch first, from the cu128 channel.
 pip install --extra-index-url https://download.pytorch.org/whl/cu128 torch==2.7.0
-# 4. All other pinned deps (transformers, trl, peft, bitsandbytes 0.46.1, …).
+# 4. All other pinned deps (transformers, trl, peft, bitsandbytes 0.49.2, …).
 pip install -r requirements.txt
-# 5. flash-attn — built against the torch installed above.
-pip install flash-attn==2.7.4.post1 --no-build-isolation
-#    If pip can't find a sm_120 wheel, grab a community prebuilt:
-#      pip install https://huggingface.co/lldacing/flash-attention-windows-wheel/.../flash_attn-...-cp310-cp310-linux_x86_64.whl
-#    or build from source. Last-resort fallback: switch configs to
-#    attn_implementation: "sdpa" (slower but no sm_120 dep) — the train
-#    scripts also auto-fallback at runtime if flash-attn import fails.
+# 5. flash-attn — empirically verified on 2026-05-13 via pip / PyPI API:
+#    flash-attn 2.7.4.post1 through 2.8.3 ship ONLY a source tarball on PyPI
+#    (no precompiled wheels). `pip install flash-attn==2.8.3 --no-build-isolation`
+#    will COMPILE FROM SOURCE — 30-60 min on first install, needs ninja + g++ +
+#    CUDA toolkit in PATH + ~16GB RAM during build. Don't panic when CPU sits
+#    at 100% for an hour.
+pip install flash-attn==2.8.3 --no-build-isolation
+#    To skip the build, grab a prebuilt community wheel matching torch+cu128+sm_120:
+#      https://huggingface.co/lldacing/flash-attention-prebuild-wheels
+#    Pick the file name matching your stack (e.g. flash_attn-2.7.4...-cp310-...whl)
+#    and `pip install <url>`.
+#    Last-resort fallback: switch configs to attn_implementation: "sdpa" —
+#    setup_check warns + all four model-load sites have try/except auto-fallback.
 # 6. HF auth.
 huggingface-cli login           # paste your HF token (Llama-3.1-8B-Instruct must be granted)
 # 7. W&B.
