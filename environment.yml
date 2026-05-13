@@ -6,8 +6,15 @@ channels:
 dependencies:
   - python=3.10
   - pip
-  - pytorch=2.5.1
-  - pytorch-cuda=12.4
-  - cuda-toolkit=12.4
+  # RTX PRO 6000 Blackwell is sm_120 — needs PyTorch ≥ 2.7.0 + cu128. Earlier
+  # PyTorch/CUDA combos lack Blackwell kernels and crash at model load.
+  - pytorch>=2.7.0
+  - pytorch-cuda=12.8
+  - cuda-toolkit=12.8
   - pip:
       - -r requirements.txt
+      # flash-attn must be installed AFTER torch and built from source / a
+      # sm_120 wheel. See README install order:
+      #   pip install flash-attn==2.7.4.post1 --no-build-isolation
+      # (community wheels at huggingface.co/lldacing/... if the upstream
+      #  pip wheel still lacks sm_120 binaries when you run.)

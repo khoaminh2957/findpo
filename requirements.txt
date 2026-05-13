@@ -1,7 +1,18 @@
 # FinDPO reproduction — pinned per R1.
 # Torch is installed separately with the right CUDA wheel (see README).
 #
-# Stack frozen on 2026-05-12. After install on REMOTE_GPU run
+# Target hardware: 4× RTX PRO 6000 Blackwell (sm_120). This forces a few
+# version floors that differ from what an Ampere/Hopper reproduction would
+# need — both bitsandbytes 0.45.0 and flash-attn 2.7.2 PRE-DATE Blackwell
+# kernel binaries and will hard-fail with "no kernel image available" /
+# CUDA runtime errors at model load. Bumped to the earliest releases that
+# ship sm_120 binaries:
+#   bitsandbytes ≥ 0.45.3 (release notes: "this release contains a CUDA
+#                          12.8 build which adds the sm100 and sm120
+#                          targets for NVIDIA Blackwell GPUs")
+#   flash-attn   ≥ 2.7.4.post1 (community/official sm_120 wheels)
+#
+# Stack frozen on 2026-05-13. After install on REMOTE_GPU run
 #   pip freeze > requirements.lock.txt
 # and commit that file alongside this one.
 
@@ -9,7 +20,7 @@ transformers==4.46.3
 trl==0.12.2
 peft==0.14.0
 accelerate==1.2.1
-bitsandbytes==0.45.0
+bitsandbytes==0.46.1     # ≥ 0.45.3 strictly required for sm_120
 datasets==3.2.0
 tokenizers==0.20.3
 sentencepiece==0.2.0

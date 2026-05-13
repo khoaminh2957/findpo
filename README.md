@@ -49,11 +49,20 @@ reports/                 Phase summary reports + final REPRODUCTION_REPORT.md
 
 ## Setup (REMOTE_GPU)
 
+**Hardware:** target is 4× RTX PRO 6000 Blackwell (sm_120). The version
+floors below are forced by Blackwell support — earlier `bitsandbytes` and
+`flash-attn` releases ship no sm_120 kernels and will crash at model load.
+
 1. `conda env create -f environment.yml && conda activate findpo`
-   - PyTorch is pinned to 2.5.1 with CUDA 12.4. Adjust `environment.yml` if the
-     remote has a different CUDA runtime.
-2. `pip install -r requirements.txt` (no-op after step 1).
-3. `pip install flash-attn==2.7.2.post1 --no-build-isolation`
+   - Pinned: PyTorch ≥ 2.7.0 + CUDA 12.8 (Blackwell-capable). Driver must be
+     ≥ 570.x. Verify with `nvidia-smi`.
+2. `pip install -r requirements.txt` (handles bitsandbytes 0.46.1+ etc.)
+3. `pip install flash-attn==2.7.4.post1 --no-build-isolation`
+   - If the upstream wheel still lacks sm_120 binaries, build from source
+     against your CUDA 12.8 toolchain, or grab a community wheel
+     (e.g. https://huggingface.co/lldacing for prebuilt sm_120 wheels).
+   - If unavailable, the configs can fall back to `attn_implementation:
+     "sdpa"` — `scripts/00_setup_check.py` will detect and warn.
 4. `huggingface-cli login`  — paste HF token with read access; the Llama-3.1
    repo must be approved on your HF account.
 5. `wandb login` — paste API key from <https://wandb.ai/authorize>.

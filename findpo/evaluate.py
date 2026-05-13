@@ -57,10 +57,22 @@ def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
         load_in_4bit=True, bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True,
     )
-    base = AutoModelForCausalLM.from_pretrained(
-        base_name, quantization_config=bnb, device_map="auto",
-        attn_implementation=cfg["model"].get("attn_implementation"),
-    )
+    requested_attn = cfg["model"].get("attn_implementation")
+    try:
+        base = AutoModelForCausalLM.from_pretrained(
+            base_name, quantization_config=bnb, device_map="auto",
+            attn_implementation=requested_attn,
+        )
+    except (ImportError, ValueError) as e:
+        if requested_attn != "sdpa":
+            print(f"[WARN] attn_implementation={requested_attn!r} failed ({e}); "
+                  "falling back to 'sdpa'.")
+            base = AutoModelForCausalLM.from_pretrained(
+                base_name, quantization_config=bnb, device_map="auto",
+                attn_implementation="sdpa",
+            )
+        else:
+            raise
     model = PeftModel.from_pretrained(base, str(run_dir / "model"))
     model.eval()
 

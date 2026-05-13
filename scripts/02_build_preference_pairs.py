@@ -52,10 +52,21 @@ def _predict_sft(texts: list[str], system: str, sft_dir: Path, base_model: str,
         load_in_4bit=True, bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True,
     )
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model, quantization_config=bnb, device_map="auto",
-        attn_implementation=attn_impl,
-    )
+    try:
+        base = AutoModelForCausalLM.from_pretrained(
+            base_model, quantization_config=bnb, device_map="auto",
+            attn_implementation=attn_impl,
+        )
+    except (ImportError, ValueError) as e:
+        if attn_impl != "sdpa":
+            print(f"[WARN] attn_implementation={attn_impl!r} failed ({e}); "
+                  "falling back to 'sdpa'.")
+            base = AutoModelForCausalLM.from_pretrained(
+                base_model, quantization_config=bnb, device_map="auto",
+                attn_implementation="sdpa",
+            )
+        else:
+            raise
     model = PeftModel.from_pretrained(base, str(sft_dir))
     model.eval()
 

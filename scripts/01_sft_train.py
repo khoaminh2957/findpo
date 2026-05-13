@@ -121,13 +121,31 @@ def main() -> int:
         bnb_4bit_compute_dtype=getattr(torch, cfg["quantization"]["bnb_4bit_compute_dtype"]),
         bnb_4bit_use_double_quant=cfg["quantization"]["bnb_4bit_use_double_quant"],
     )
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        revision=cfg["model"].get("revision"),
-        quantization_config=bnb,
-        device_map="auto",
-        attn_implementation=cfg["model"].get("attn_implementation"),
-    )
+    # flash_attention_2 ships no sm_120 kernels in older flash-attn releases.
+    # If the requested impl can't be initialised, fall back to sdpa and log
+    # the deviation — better than crashing mid-launch on the remote.
+    requested_attn = cfg["model"].get("attn_implementation")
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            revision=cfg["model"].get("revision"),
+            quantization_config=bnb,
+            device_map="auto",
+            attn_implementation=requested_attn,
+        )
+    except (ImportError, ValueError) as e:
+        if requested_attn != "sdpa":
+            print(f"[WARN] attn_implementation={requested_attn!r} failed ({e}); "
+                  "falling back to 'sdpa'.")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                revision=cfg["model"].get("revision"),
+                quantization_config=bnb,
+                device_map="auto",
+                attn_implementation="sdpa",
+            )
+        else:
+            raise
     model = prepare_model_for_kbit_training(
         model,
         use_gradient_checkpointing=cfg["train"]["gradient_checkpointing"],
