@@ -35,3 +35,4 @@ hf_token*
 Thumbs.db
 .vscode/
 .idea/
+!data/manifest_phase0.json

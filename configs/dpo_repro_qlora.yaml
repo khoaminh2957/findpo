@@ -1,107 +1,95 @@
-# Phase 2 — DPO reproduction (QLoRA path).
-# Reference model is the SAME quantized base with LoRA adapter disabled
-# (TRL DPOTrainer handles this automatically when ref_model=None and peft_config is set).
-# This is the Zephyr / alignment-handbook recipe.
-
 experiment:
-  id: "dpo_repro_qlora"
-  description: "DPO reproduction; QLoRA NF4; rejected = SFT-confused class (Strategy B)"
-  paper_phase: "phase-2"
-
+  id: dpo_repro_qlora
+  description: DPO reproduction; QLoRA NF4; rejected = SFT-confused class (Strategy
+    B)
+  paper_phase: phase-2
 model:
-  name: "unsloth/Meta-Llama-3.1-8B-Instruct"
-  revision: null
+  name: unsloth/Meta-Llama-3.1-8B-Instruct
+  revision: a2856192dd7c25b842431f39c179a6c2c2f627d1
   trust_remote_code: false
-  attn_implementation: "sdpa"  # sm_120 + cu128 + cp312: no prebuilt flash-attn wheel for torch 2.7, source build skipped — RTX 5090 memory-bound QLoRA absorbs sdpa overhead
-
+  attn_implementation: sdpa
 quantization:
   load_in_4bit: true
-  bnb_4bit_quant_type: "nf4"
-  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
   bnb_4bit_use_double_quant: true
-
 lora:
   r: 16
-  alpha: 16         # paper §4.1.2: r=alpha=16 — matches FinDPO paper exactly
+  alpha: 16
   dropout: 0.05
-  bias: "none"
-  task_type: "CAUSAL_LM"
+  bias: none
+  task_type: CAUSAL_LM
   target_modules:
-    - q_proj
-    - k_proj
-    - v_proj
-    - o_proj
-    - gate_proj
-    - up_proj
-    - down_proj
-
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
 datasets:
-  # Same as SFT — must use identical train/eval split so DPO and SFT are comparable.
-  fpb: { repo: "takala/financial_phrasebank", config: "sentences_50agree", revision: null }
-  tfns: { repo: "zeroshot/twitter-financial-news-sentiment", revision: null }
-  gpt_news: { repo: "oliverwang15/news_with_gpt_instructions", revision: null }
-
+  fpb:
+    repo: takala/financial_phrasebank
+    config: sentences_50agree
+    revision: 8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964
+  tfns:
+    repo: zeroshot/twitter-financial-news-sentiment
+    revision: ccbe24de388e287beb92dd393a335c376b350ac3
+  gpt_news:
+    repo: oliverwang15/news_with_gpt_instructions
+    revision: b7c333378679b2a74d7248b407c06021d3f26adb
 split:
   train_ratio: 0.8
   split_seed: 42
-
 preference_pairs:
-  # FinDPO paper §4.1.1: hybrid AB strategy is the paper's actual approach.
-  #   - SFT correct  → rejected = random non-true class (Strategy A path)
-  #   - SFT wrong    → rejected = predicted (wrong) class (Strategy B path)
-  # Pure B (always top non-true) was my earlier mis-interpretation.
-  strategy: "AB"
-  # --sft-run-dir CLI flag on scripts/02_build_preference_pairs.py points
-  # to results/exp_sft_baseline_seed<N>/ (note exp_ prefix from
-  # findpo.paths.run_paths).
-
+  strategy: AB
 prompt:
-  system: "You are a financial sentiment classifier. Read the financial text and respond with exactly one word: positive, neutral, or negative."
-
+  system: 'You are a financial sentiment classifier. Read the financial text and respond
+    with exactly one word: positive, neutral, or negative.'
 train:
-  output_dir_base: "results"
+  output_dir_base: results
   seed: 42
-  beta: 0.1                          # DPO temperature; sweep 0.05/0.1/0.3 if pass criterion not met
-  num_train_epochs: 5                # paper §4.1.2: "DPO alignment over 5 epochs"
+  beta: 0.1
+  num_train_epochs: 5
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 8     # effective batch 8
+  gradient_accumulation_steps: 8
   per_device_eval_batch_size: 4
-  learning_rate: 5.0e-6              # QLoRA-DPO typical (paper says 5e-7 for full FT; LoRA needs 10x)
-  lr_scheduler_type: "cosine"
+  learning_rate: 5.0e-06
+  lr_scheduler_type: cosine
   warmup_ratio: 0.1
   weight_decay: 0.0
   max_length: 512
   max_prompt_length: 384
   bf16: true
   gradient_checkpointing: true
-  optim: "paged_adamw_32bit"
+  optim: paged_adamw_32bit
   logging_steps: 10
-  save_strategy: "epoch"          # must match eval_strategy for load_best_model_at_end
+  save_strategy: epoch
   save_total_limit: 3
-  eval_strategy: "epoch"
+  eval_strategy: epoch
   load_best_model_at_end: true
-  # DPOTrainer auto-logs eval_rewards/accuracies = % of pairs where
-  # chosen-reward > rejected-reward. This is the natural quantity to
-  # maximize during DPO training.
-  metric_for_best_model: "eval_rewards/accuracies"
+  metric_for_best_model: eval_rewards/accuracies
   greater_is_better: true
-  report_to: ["wandb"]
-  # DPO-specific TRL knobs
-  loss_type: "sigmoid"               # original DPO loss
+  report_to:
+  - wandb
+  loss_type: sigmoid
   label_smoothing: 0.0
   generate_during_eval: false
   precompute_ref_log_probs: false
-
 eval:
-  on_dataset: "fpb"
-  test_split: "test"
+  on_dataset: fpb
+  test_split: test
   metrics:
-    - accuracy
-    - macro_f1
-    - per_class_precision
-    - per_class_recall
-    - confusion_matrix
-
+  - accuracy
+  - macro_f1
+  - per_class_precision
+  - per_class_recall
+  - confusion_matrix
 wandb:
-  project: "findpo-repro"
-  tags: ["phase-2", "dpo", "qlora", "llama-3.1-8b", "strategy-b"]
+  project: findpo-repro
+  tags:
+  - phase-2
+  - dpo
+  - qlora
+  - llama-3.1-8b
+  - strategy-b

@@ -1,104 +1,89 @@
-# Phase 1 — SFT baseline.
-# Llama-3.1-8B-Instruct + QLoRA (4-bit NF4 + LoRA r=16).
-# Deviation vs paper: paper used Llama-3.0-8B-Instruct. Architecture identical;
-# expect SFT baseline to be 1-2 points higher than paper's SFT baseline.
-
 experiment:
-  id: "sft_baseline"
-  description: "SFT comparator for DPO; Llama-3.1-8B-Instruct + QLoRA"
-  paper_phase: "phase-1"
-
+  id: sft_baseline
+  description: SFT comparator for DPO; Llama-3.1-8B-Instruct + QLoRA
+  paper_phase: phase-1
 model:
-  name: "unsloth/Meta-Llama-3.1-8B-Instruct"
-  revision: null            # TODO: fill commit hash after first download on remote
+  name: unsloth/Meta-Llama-3.1-8B-Instruct
+  revision: a2856192dd7c25b842431f39c179a6c2c2f627d1
   trust_remote_code: false
-  attn_implementation: "sdpa"  # sm_120 + cu128 + cp312: no prebuilt flash-attn wheel for torch 2.7, source build skipped — RTX 5090 memory-bound QLoRA absorbs sdpa overhead
-
+  attn_implementation: sdpa
 quantization:
   load_in_4bit: true
-  bnb_4bit_quant_type: "nf4"
-  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
   bnb_4bit_use_double_quant: true
-
 lora:
   r: 16
-  alpha: 16         # paper §4.1.2: r=alpha=16 (NOT 2×r as is common); matches FinDPO paper
+  alpha: 16
   dropout: 0.05
-  bias: "none"
-  task_type: "CAUSAL_LM"
+  bias: none
+  task_type: CAUSAL_LM
   target_modules:
-    - q_proj
-    - k_proj
-    - v_proj
-    - o_proj
-    - gate_proj
-    - up_proj
-    - down_proj
-
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
 datasets:
   fpb:
-    repo: "takala/financial_phrasebank"
-    config: "sentences_50agree"
-    revision: null          # TODO: pin commit hash on remote
+    repo: takala/financial_phrasebank
+    config: sentences_50agree
+    revision: 8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964
     split_for_train_eval: true
   tfns:
-    repo: "zeroshot/twitter-financial-news-sentiment"
-    revision: null
+    repo: zeroshot/twitter-financial-news-sentiment
+    revision: ccbe24de388e287beb92dd393a335c376b350ac3
     split_for_train_eval: true
   gpt_news:
-    # Verified 2026-05-13 from FinDPO paper §4.1.1 citation [25]: Oliver Wang
-    # "News with GPT instructions" — labels are STRING (strong/moderately/
-    # mildly negative/positive + neutral) merged to 3 classes via labels.py.
-    repo: "oliverwang15/news_with_gpt_instructions"
-    revision: null         # pin commit hash on remote after first download
+    repo: oliverwang15/news_with_gpt_instructions
+    revision: b7c333378679b2a74d7248b407c06021d3f26adb
     split_for_train_eval: true
-
 split:
   train_ratio: 0.8
-  split_seed: 42            # split is reproducible from this seed independent of training seed
+  split_seed: 42
   save_indices: true
-
 prompt:
-  system: "You are a financial sentiment classifier. Read the financial text and respond with exactly one word: positive, neutral, or negative."
-
+  system: 'You are a financial sentiment classifier. Read the financial text and respond
+    with exactly one word: positive, neutral, or negative.'
 train:
-  output_dir_base: "results"
-  seed: 42                  # overridden by --seed CLI; default for first run
+  output_dir_base: results
+  seed: 42
   num_train_epochs: 3
   per_device_train_batch_size: 4
-  gradient_accumulation_steps: 4    # effective batch 16
+  gradient_accumulation_steps: 4
   per_device_eval_batch_size: 8
-  learning_rate: 2.0e-4              # QLoRA-typical LR (paper used full FT lr=2e-5; QLoRA adapter needs ~10x)
-  lr_scheduler_type: "cosine"
+  learning_rate: 0.0002
+  lr_scheduler_type: cosine
   warmup_ratio: 0.03
   weight_decay: 0.0
   max_seq_length: 512
   bf16: true
   gradient_checkpointing: true
-  optim: "paged_adamw_32bit"
+  optim: paged_adamw_32bit
   logging_steps: 10
-  save_strategy: "epoch"          # must match eval_strategy for load_best_model_at_end
+  save_strategy: epoch
   save_total_limit: 3
-  eval_strategy: "epoch"
+  eval_strategy: epoch
   load_best_model_at_end: true
-  # eval_loss is computed by Trainer automatically; macro_f1 would need a
-  # compute_metrics callback which is too expensive to run every epoch
-  # (would force generation over the eval set). Final classification eval
-  # runs once in 01_sft_eval.py after training.
-  metric_for_best_model: "eval_loss"
+  metric_for_best_model: eval_loss
   greater_is_better: false
-  report_to: ["wandb"]
-
+  report_to:
+  - wandb
 eval:
-  on_dataset: "fpb"          # primary benchmark for repro comparison
-  test_split: "test"
+  on_dataset: fpb
+  test_split: test
   metrics:
-    - accuracy
-    - macro_f1
-    - per_class_precision
-    - per_class_recall
-    - confusion_matrix
-
+  - accuracy
+  - macro_f1
+  - per_class_precision
+  - per_class_recall
+  - confusion_matrix
 wandb:
-  project: "findpo-repro"
-  tags: ["phase-1", "sft", "qlora", "llama-3.1-8b"]
+  project: findpo-repro
+  tags:
+  - phase-1
+  - sft
+  - qlora
+  - llama-3.1-8b

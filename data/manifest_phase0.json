@@ -1,0 +1,84 @@
+{
+  "splits": [
+    {
+      "name": "fpb_train",
+      "repo": "takala/financial_phrasebank",
+      "revision": "8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964",
+      "config": "sentences_50agree",
+      "num_rows": 3864,
+      "sha256": "39a52ef87722cc016a19c4c23369698bce6fc5ff382894be49d41e0caaa866ef",
+      "label_distribution": {
+        "positive": 1099,
+        "neutral": 2285,
+        "negative": 480
+      }
+    },
+    {
+      "name": "fpb_test",
+      "repo": "takala/financial_phrasebank",
+      "revision": "8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964",
+      "config": "sentences_50agree",
+      "num_rows": 966,
+      "sha256": "33687cef9b2cfb14fb4a244b9ba791b6f1ef56f759a98cb4efb1493b8053e2af",
+      "label_distribution": {
+        "positive": 262,
+        "negative": 124,
+        "neutral": 580
+      }
+    },
+    {
+      "name": "tfns_train",
+      "repo": "zeroshot/twitter-financial-news-sentiment",
+      "revision": "ccbe24de388e287beb92dd393a335c376b350ac3",
+      "config": null,
+      "num_rows": 7634,
+      "sha256": "a29996ee3caa123353d6e5fd8dabb66c65de995e2fc942963cc6a04f2aab1093",
+      "label_distribution": {
+        "neutral": 4956,
+        "negative": 1152,
+        "positive": 1526
+      }
+    },
+    {
+      "name": "tfns_test",
+      "repo": "zeroshot/twitter-financial-news-sentiment",
+      "revision": "ccbe24de388e287beb92dd393a335c376b350ac3",
+      "config": null,
+      "num_rows": 1909,
+      "sha256": "addfe22189fbf0eb5cbba8e206ba37d3f3c591af2c54dc08c816d9113015d625",
+      "label_distribution": {
+        "neutral": 1222,
+        "positive": 397,
+        "negative": 290
+      }
+    },
+    {
+      "name": "gpt_news_train",
+      "repo": "oliverwang15/news_with_gpt_instructions",
+      "revision": "b7c333378679b2a74d7248b407c06021d3f26adb",
+      "config": null,
+      "num_rows": 12947,
+      "sha256": "044c92053177fd5317b632b190cd291eead828d96170f146b8b12248a2e523d0",
+      "label_distribution": {
+        "positive": 7097,
+        "negative": 4281,
+        "neutral": 1569
+      }
+    },
+    {
+      "name": "gpt_news_test",
+      "repo": "oliverwang15/news_with_gpt_instructions",
+      "revision": "b7c333378679b2a74d7248b407c06021d3f26adb",
+      "config": null,
+      "num_rows": 3237,
+      "sha256": "a8b48a181ace55303ccbedef997f7b913d4dad57fe295d29a888f970c227d3d6",
+      "label_distribution": {
+        "negative": 1017,
+        "positive": 1825,
+        "neutral": 395
+      }
+    }
+  ],
+  "split_seed": 42,
+  "train_ratio": 0.8
+}
