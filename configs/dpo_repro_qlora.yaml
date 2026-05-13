@@ -22,7 +22,7 @@ quantization:
 
 lora:
   r: 16
-  alpha: 32
+  alpha: 16         # paper §4.1.2: r=alpha=16 — matches FinDPO paper exactly
   dropout: 0.05
   bias: "none"
   task_type: "CAUSAL_LM"
@@ -39,19 +39,20 @@ datasets:
   # Same as SFT — must use identical train/eval split so DPO and SFT are comparable.
   fpb: { repo: "takala/financial_phrasebank", config: "sentences_50agree", revision: null }
   tfns: { repo: "zeroshot/twitter-financial-news-sentiment", revision: null }
-  gpt_news: { repo: "TODO_VERIFY_FROM_PAPER", revision: null }
+  gpt_news: { repo: "oliverwang15/news_with_gpt_instructions", revision: null }
 
 split:
   train_ratio: 0.8
   split_seed: 42
 
 preference_pairs:
-  strategy: "B"             # A = random rejected, B = SFT-confused rejected
-  # Strategy B: rejected = top non-true class predicted by the SFT model;
-  # the SFT run dir is passed via the --sft-run-dir CLI flag on
-  # scripts/02_build_preference_pairs.py (NOT a config field — keeping the
-  # canonical path in one place avoids drift). The expected directory is
-  # results/exp_sft_baseline_seed<N>/ (note the exp_ prefix added by
+  # FinDPO paper §4.1.1: hybrid AB strategy is the paper's actual approach.
+  #   - SFT correct  → rejected = random non-true class (Strategy A path)
+  #   - SFT wrong    → rejected = predicted (wrong) class (Strategy B path)
+  # Pure B (always top non-true) was my earlier mis-interpretation.
+  strategy: "AB"
+  # --sft-run-dir CLI flag on scripts/02_build_preference_pairs.py points
+  # to results/exp_sft_baseline_seed<N>/ (note exp_ prefix from
   # findpo.paths.run_paths).
 
 prompt:
@@ -61,7 +62,7 @@ train:
   output_dir_base: "results"
   seed: 42
   beta: 0.1                          # DPO temperature; sweep 0.05/0.1/0.3 if pass criterion not met
-  num_train_epochs: 3
+  num_train_epochs: 5                # paper §4.1.2: "DPO alignment over 5 epochs"
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 8     # effective batch 8
   per_device_eval_batch_size: 4

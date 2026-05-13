@@ -25,7 +25,11 @@ from .labels import canonicalize_label
 DATASET_FIELD_MAP: dict[str, dict[str, str]] = {
     "takala/financial_phrasebank": {"text": "sentence", "label": "label"},
     "zeroshot/twitter-financial-news-sentiment": {"text": "text", "label": "label"},
-    # gpt_news repo TBD — fill once verified against paper.
+    # NWGI (FinDPO paper §4.1.1, citation [25]): empirically verified columns
+    # via load_dataset on 2026-05-13. Labels are strings: strong negative,
+    # moderately negative, mildly negative, neutral, mildly positive,
+    # moderately positive, strong positive — merged to 3 classes by labels.py.
+    "oliverwang15/news_with_gpt_instructions": {"text": "news", "label": "label"},
 }
 
 

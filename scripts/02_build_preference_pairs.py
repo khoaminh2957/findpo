@@ -1,15 +1,21 @@
 """Phase 2 — build preference pairs (offline).
 
-Strategy A: rejected = uniform random from the two non-true classes.
-Strategy B: rejected = top non-true class predicted by the SFT model
-            (loaded from --sft-run-dir/model).
+Strategies:
+  A: rejected = uniform random from the two non-true classes.
+  B: rejected = top non-true class predicted by the SFT model
+     (loaded from --sft-run-dir/model).
+  AB: HYBRID — matches FinDPO paper §4.1.1 exactly:
+      - if SFT predicts CORRECTLY  → rejected = random non-true (Strategy A path)
+      - if SFT predicts INCORRECTLY → rejected = predicted class (Strategy B path,
+        "guide the model away from its own mistakes")
+      Both paths use the reference (base instruct) model in the paper, but we
+      use the seed-matched SFT model since that's what's available before DPO.
 
 Writes a HuggingFace Dataset at data/preference_pairs/<strategy>_<seed>/ with
 columns {prompt, chosen, rejected}, plus pairs_manifest_<strategy>_<seed>.json.
 
-Strategy B is the default — captures where the SFT baseline is *confused*,
-which is the intent of DPO. Run once per seed; pairs are reused across DPO
-training seeds (the DPO seed only affects the training loop, not the pairs).
+AB is the default — exact match to paper. A is the simple no-SFT baseline.
+B is the pure-confused approach (my earlier interpretation, sub-optimal).
 """
 from __future__ import annotations
 
@@ -112,7 +118,7 @@ def _predict_sft(texts: list[str], system: str, sft_dir: Path, base_model: str,
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True, help="DPO config (datasets + prompt only used).")
-    p.add_argument("--strategy", choices=("A", "B"), default="B")
+    p.add_argument("--strategy", choices=("A", "B", "AB"), default="AB")
     p.add_argument("--seed", type=int, required=True)
     p.add_argument("--splits-dir", default="data/splits")
     p.add_argument("--out-dir", default="data/preference_pairs")
@@ -139,21 +145,40 @@ def main() -> int:
     if args.strategy == "A":
         rejecteds = [_strategy_a_rejected(t, rng) for t in true_labels]
     else:
+        # B or AB — both need SFT predictions
         if not args.sft_run_dir:
-            raise SystemExit("Strategy B requires --sft-run-dir.")
+            raise SystemExit(f"Strategy {args.strategy} requires --sft-run-dir.")
         sft_model_dir = Path(args.sft_run_dir) / "model"
         logits = _predict_sft(
             texts, sys_prompt, sft_model_dir,
             base_model=cfg["model"]["name"],
             attn_impl=cfg["model"].get("attn_implementation"),
         )
-        # rejected = argmax over non-true classes
+        # For each example: figure out SFT prediction (argmax over all 3 classes)
+        # then apply strategy:
+        #   B  → rejected = top non-true (always pick confused class)
+        #   AB → if SFT correct: random non-true; if SFT wrong: predicted class
         rejecteds = []
+        n_sft_correct = n_sft_wrong = 0
         for true_lbl, row in zip(true_labels, logits):
             row_by_label = dict(zip(LABELS, row))
-            cand = [(l, v) for l, v in row_by_label.items() if l != true_lbl]
-            cand.sort(key=lambda kv: kv[1], reverse=True)
-            rejecteds.append(cand[0][0])
+            sft_pred = max(row_by_label.items(), key=lambda kv: kv[1])[0]
+
+            if args.strategy == "B":
+                cand = [(l, v) for l, v in row_by_label.items() if l != true_lbl]
+                cand.sort(key=lambda kv: kv[1], reverse=True)
+                rejecteds.append(cand[0][0])
+            else:  # AB — paper §4.1.1
+                if sft_pred == true_lbl:
+                    n_sft_correct += 1
+                    rejecteds.append(_strategy_a_rejected(true_lbl, rng))
+                else:
+                    n_sft_wrong += 1
+                    rejecteds.append(sft_pred)
+        if args.strategy == "AB":
+            print(f"AB strategy: SFT correct on {n_sft_correct}/{len(true_labels)} "
+                  f"({100*n_sft_correct/len(true_labels):.1f}%) → random rejected;"
+                  f" SFT wrong on {n_sft_wrong} → predicted-class rejected.")
 
     # Build records — prompt is the rendered chat template up to assistant role,
     # chosen/rejected are bare label strings (TRL handles concatenation).

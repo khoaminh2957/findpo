@@ -18,22 +18,30 @@ LABEL2ID: dict[str, int] = {lbl: i for i, lbl in enumerate(LABELS)}
 ID2LABEL: dict[int, str] = {i: lbl for i, lbl in enumerate(LABELS)}
 
 # Per-dataset integer-label encodings — verified against dataset cards
-# (FinDPO repro audit 2026-05-12).
+# (FinDPO repro audit 2026-05-13, FinDPO paper section 4.1.1).
 INT_LABEL_MAPS: dict[str, dict[int, str]] = {
     # FPB: ClassLabel(names=["negative", "neutral", "positive"]) — natural order.
     "takala/financial_phrasebank": {0: "negative", 1: "neutral", 2: "positive"},
     # TFNS: dataset card lists LABEL_0=Bearish, LABEL_1=Bullish, LABEL_2=Neutral.
     "zeroshot/twitter-financial-news-sentiment": {0: "negative", 1: "positive", 2: "neutral"},
-    # gpt_news — pin once paper repo confirmed.
+    # NWGI uses STRING labels (handled by _STR_LABEL_MAP), no int map needed.
 }
 
-# Only unambiguous string labels here. Generic forms like "label_0" are
-# intentionally NOT included: their mapping depends on dataset (e.g.
-# LABEL_1 means "neutral" in FPB but "bullish" (=positive) in TFNS), so
-# accepting them silently would hide off-by-one bugs.
+# String labels — includes NWGI's 7-class scheme merged to 3 classes per
+# FinDPO paper §4.1.1: "strongly and mildly negative classes were combined
+# into a single negative class, and similarly... positive". Empirically NWGI
+# also has 'moderately' tier (paper says 5 labels but dataset has 7);
+# we treat any */negative as negative, */positive as positive.
 _STR_LABEL_MAP: dict[str, str] = {
     "negative": "negative", "neutral": "neutral", "positive": "positive",
     "bearish": "negative", "bullish": "positive",
+    # NWGI 7-class → 3-class
+    "strong negative": "negative",
+    "moderately negative": "negative",
+    "mildly negative": "negative",
+    "mildly positive": "positive",
+    "moderately positive": "positive",
+    "strong positive": "positive",
 }
 
 

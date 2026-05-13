@@ -22,7 +22,7 @@ quantization:
 
 lora:
   r: 16
-  alpha: 32
+  alpha: 16         # paper §4.1.2: r=alpha=16 (NOT 2×r as is common); matches FinDPO paper
   dropout: 0.05
   bias: "none"
   task_type: "CAUSAL_LM"
@@ -46,13 +46,11 @@ datasets:
     revision: null
     split_for_train_eval: true
   gpt_news:
-    # Paper uses GPT-4-labeled financial news. Exact HF repo to be verified
-    # against paper PDF / authors' release. Common candidates:
-    #   oliverwang15/news_with_gpt_instructions
-    #   pauri32/fiqa-2018
-    # Confirm with user before Phase 1 train.
-    repo: "TODO_VERIFY_FROM_PAPER"
-    revision: null
+    # Verified 2026-05-13 from FinDPO paper §4.1.1 citation [25]: Oliver Wang
+    # "News with GPT instructions" — labels are STRING (strong/moderately/
+    # mildly negative/positive + neutral) merged to 3 classes via labels.py.
+    repo: "oliverwang15/news_with_gpt_instructions"
+    revision: null         # pin commit hash on remote after first download
     split_for_train_eval: true
 
 split:

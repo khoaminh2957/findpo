@@ -132,7 +132,10 @@ python scripts/aggregate_seeds.py --exp-id sft_baseline --eval-dataset fpb \
   --out-md reports/phase_1_sft_table.md
 ```
 
-**Pass criterion**: mean accuracy on FPB test ≥ 80%.
+**Paper-grounded pass criterion** (FinDPO Table 2, FinSFT weighted F1):
+- FPB ≥ 0.80 (paper FinSFT = 0.829)
+- TFNS ≥ 0.82 (paper FinSFT = 0.850)
+- NWGI ≥ 0.68 (paper FinSFT = 0.708)
 
 ### Phase 2 — DPO repro
 ```bash
@@ -140,17 +143,17 @@ python scripts/aggregate_seeds.py --exp-id sft_baseline --eval-dataset fpb \
 for s in 42 123 7; do
   python scripts/02_build_preference_pairs.py \
     --config configs/dpo_repro_qlora.yaml \
-    --strategy B --seed ${s} \
+    --strategy AB --seed ${s} \
     --sft-run-dir results/exp_sft_baseline_seed${s}
 done
 
 # 2. Train (parallel across 3 GPUs).
 CUDA_VISIBLE_DEVICES=0 python scripts/02_dpo_train.py --config configs/dpo_repro_qlora.yaml --seed 42 \
-  --pairs-dir data/preference_pairs/strategyB_seed42 &
+  --pairs-dir data/preference_pairs/strategyAB_seed42 &
 CUDA_VISIBLE_DEVICES=1 python scripts/02_dpo_train.py --config configs/dpo_repro_qlora.yaml --seed 123 \
-  --pairs-dir data/preference_pairs/strategyB_seed123 &
+  --pairs-dir data/preference_pairs/strategyAB_seed123 &
 CUDA_VISIBLE_DEVICES=2 python scripts/02_dpo_train.py --config configs/dpo_repro_qlora.yaml --seed 7 \
-  --pairs-dir data/preference_pairs/strategyB_seed7 &
+  --pairs-dir data/preference_pairs/strategyAB_seed7 &
 wait
 
 # 3. Eval + aggregate.
@@ -161,8 +164,14 @@ python scripts/aggregate_seeds.py --exp-id dpo_repro_qlora --eval-dataset fpb \
   --out-md reports/phase_2_dpo_table.md
 ```
 
-**Pass criterion**: mean DPO accuracy − mean SFT accuracy ≥ +8% on FPB
-(paper claims +11%; allow margin).
+**Paper-grounded pass criterion** (FinDPO Table 2, weighted F1 mean ± std):
+- FPB FinDPO − FinSFT: paper +3.6% (0.865 − 0.829) → repro ≥ +2%
+- TFNS FinDPO − FinSFT: paper +2.2% → repro ≥ +1%
+- NWGI FinDPO − FinSFT: paper +12.5% → repro ≥ +8% (dominant driver)
+- Average: paper +9.7% → repro ≥ +6%
+
+Note: paper's headline "+11%" is FinDPO vs FinGPT v3.3 (NOT vs FinSFT).
+Vs FinSFT (paper's own same-base SFT), gap is +9.7% average.
 
 ## Reproducibility guardrails
 

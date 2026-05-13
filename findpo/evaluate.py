@@ -109,6 +109,9 @@ def run_eval(run_dir: Path, eval_dataset: str, splits_dir: Path,
         "n": len(preds),
         "accuracy": accuracy_score(y_true, y_pred),
         "macro_f1": f1_score(y_true, y_pred, labels=list(LABELS), average="macro"),
+        # weighted_f1 is the PAPER's headline metric (FinDPO §5.1, Table 2).
+        # Match it explicitly so reproduction numbers line up.
+        "weighted_f1": f1_score(y_true, y_pred, labels=list(LABELS), average="weighted"),
         "n_unparseable": n_unparseable,
         "per_class": classification_report(y_true, y_pred, labels=list(LABELS),
                                             output_dict=True, zero_division=0),

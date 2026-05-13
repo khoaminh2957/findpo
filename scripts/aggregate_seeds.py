@@ -39,6 +39,9 @@ def main() -> int:
             "seed": seed,
             "accuracy": m["accuracy"],
             "macro_f1": m["macro_f1"],
+            # weighted_f1 is the paper's headline metric (FinDPO Table 2);
+            # fall back to None for old eval json that didn't have it.
+            "weighted_f1": m.get("weighted_f1"),
             "n": m["n"],
             "n_unparseable": m["n_unparseable"],
         })
@@ -48,31 +51,36 @@ def main() -> int:
         return 1
 
     print(f"\n## {args.exp_id} on {args.eval_dataset} test (n={rows[0]['n']})\n")
-    print("| Seed | Accuracy | Macro F1 | Unparseable |")
-    print("|------|----------|----------|-------------|")
+    print("| Seed | Accuracy | Macro F1 | Weighted F1 | Unparseable |")
+    print("|------|----------|----------|-------------|-------------|")
     for r in rows:
-        print(f"| {r['seed']} | {r['accuracy']:.4f} | {r['macro_f1']:.4f} | {r['n_unparseable']} |")
+        wf1 = f"{r['weighted_f1']:.4f}" if r['weighted_f1'] is not None else "-"
+        print(f"| {r['seed']} | {r['accuracy']:.4f} | {r['macro_f1']:.4f} | {wf1} | {r['n_unparseable']} |")
+
+    def stat_line(vals):
+        if not vals: return "-"
+        m = statistics.mean(vals)
+        s = statistics.stdev(vals) if len(vals) > 1 else 0
+        return f"**{m:.4f} ± {s:.4f}**"
 
     acc = [r["accuracy"] for r in rows]
     f1 = [r["macro_f1"] for r in rows]
-    print(f"| **mean ± std** | "
-          f"**{statistics.mean(acc):.4f} ± {statistics.stdev(acc) if len(acc) > 1 else 0:.4f}** | "
-          f"**{statistics.mean(f1):.4f} ± {statistics.stdev(f1) if len(f1) > 1 else 0:.4f}** | — |")
+    wf1 = [r["weighted_f1"] for r in rows if r["weighted_f1"] is not None]
+    print(f"| **mean ± std** | {stat_line(acc)} | {stat_line(f1)} | {stat_line(wf1)} | — |")
 
     if args.out_md:
-        Path(args.out_md).write_text(
-            "\n".join([
-                f"## {args.exp_id} on {args.eval_dataset} test (n={rows[0]['n']})",
-                "",
-                "| Seed | Accuracy | Macro F1 | Unparseable |",
-                "|------|----------|----------|-------------|",
-                *(f"| {r['seed']} | {r['accuracy']:.4f} | {r['macro_f1']:.4f} | {r['n_unparseable']} |" for r in rows),
-                f"| **mean ± std** | "
-                f"**{statistics.mean(acc):.4f} ± {statistics.stdev(acc) if len(acc) > 1 else 0:.4f}** | "
-                f"**{statistics.mean(f1):.4f} ± {statistics.stdev(f1) if len(f1) > 1 else 0:.4f}** | — |",
-                "",
-            ])
-        )
+        lines = [
+            f"## {args.exp_id} on {args.eval_dataset} test (n={rows[0]['n']})",
+            "",
+            "| Seed | Accuracy | Macro F1 | Weighted F1 | Unparseable |",
+            "|------|----------|----------|-------------|-------------|",
+        ]
+        for r in rows:
+            wf1_str = f"{r['weighted_f1']:.4f}" if r['weighted_f1'] is not None else "-"
+            lines.append(f"| {r['seed']} | {r['accuracy']:.4f} | {r['macro_f1']:.4f} | {wf1_str} | {r['n_unparseable']} |")
+        lines.append(f"| **mean ± std** | {stat_line(acc)} | {stat_line(f1)} | {stat_line(wf1)} | — |")
+        lines.append("")
+        Path(args.out_md).write_text("\n".join(lines))
     return 0
 
 

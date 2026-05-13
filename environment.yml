@@ -13,8 +13,10 @@ dependencies:
   - cuda-toolkit=12.8
   - pip:
       - -r requirements.txt
-      # flash-attn must be installed AFTER torch and built from source / a
-      # sm_120 wheel. See README install order:
-      #   pip install flash-attn==2.7.4.post1 --no-build-isolation
-      # (community wheels at huggingface.co/lldacing/... if the upstream
-      #  pip wheel still lacks sm_120 binaries when you run.)
+      # flash-attn must be installed AFTER torch. PyPI ships only a source
+      # tarball (verified 2026-05-13 — no precompiled wheels for any 2.7.x
+      # or 2.8.x version), so pip will build from source (30-60 min).
+      # See README install order:
+      #   pip install flash-attn==2.8.3 --no-build-isolation
+      # Community prebuilt wheels for sm_120 + cu128 + torch2.7+ at:
+      #   https://huggingface.co/lldacing/flash-attention-prebuild-wheels
