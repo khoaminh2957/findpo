@@ -16,9 +16,22 @@ from .tokenizer_setup import render_chat, setup_tokenizer
 
 
 def _parse_label(raw: str) -> str | None:
+    """Parse model output to a canonical label.
+
+    Two passes so the FIRST word the model emitted wins over any other label
+    that may also appear later in a verbose response. Without the two-pass
+    structure, an output like "positive or negative" would match "negative"
+    first (alphabetical order of LABELS) via the `in split` branch — wrong;
+    the model's actual answer was "positive".
+    """
     s = raw.strip().lower()
+    # Pass 1: prefer the label the model started with.
     for lbl in LABELS:
-        if s.startswith(lbl) or lbl in s.split():
+        if s.startswith(lbl):
+            return lbl
+    # Pass 2: fall back to any label appearing as a whole word.
+    for lbl in LABELS:
+        if lbl in s.split():
             return lbl
     return None
 

@@ -27,10 +27,13 @@ INT_LABEL_MAPS: dict[str, dict[int, str]] = {
     # gpt_news — pin once paper repo confirmed.
 }
 
+# Only unambiguous string labels here. Generic forms like "label_0" are
+# intentionally NOT included: their mapping depends on dataset (e.g.
+# LABEL_1 means "neutral" in FPB but "bullish" (=positive) in TFNS), so
+# accepting them silently would hide off-by-one bugs.
 _STR_LABEL_MAP: dict[str, str] = {
     "negative": "negative", "neutral": "neutral", "positive": "positive",
     "bearish": "negative", "bullish": "positive",
-    "label_0": "negative", "label_1": "neutral", "label_2": "positive",  # FPB ordering
 }
 
 

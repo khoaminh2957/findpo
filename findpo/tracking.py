@@ -31,7 +31,19 @@ class _JsonlSink:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._fh = self.path.open("a", encoding="utf-8", buffering=1)
+        # Archive any prior log from a previous run rather than appending
+        # (which would mix two runs' step numbers) or silently overwriting
+        # (which loses data). Re-runs after a crash get a fresh file and a
+        # .bakN file preserving the previous attempt.
+        if self.path.exists() and self.path.stat().st_size > 0:
+            i = 0
+            while True:
+                bak = self.path.with_suffix(self.path.suffix + f".bak{i}")
+                if not bak.exists():
+                    break
+                i += 1
+            self.path.rename(bak)
+        self._fh = self.path.open("w", encoding="utf-8", buffering=1)
 
     def write(self, payload: dict[str, Any]) -> None:
         payload = {"_ts": time.time(), **payload}

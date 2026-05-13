@@ -21,6 +21,7 @@ from findpo.data import (  # noqa: E402
     DATASET_FIELD_MAP,
     SplitFingerprint,
     deterministic_split,
+    drop_text_duplicates,
     label_dist,
     load_one,
     normalize_dataset,
@@ -64,6 +65,15 @@ def main() -> int:
             raw_split = raw
 
         norm = normalize_dataset(raw_split, repo=repo, source_tag=source_tag)
+        # Drop sentences that appear more than once in the source dataset —
+        # in FPB sentences_50agree this catches 8 sentences (several with
+        # conflicting annotator labels). Without dedup, deterministic_split
+        # can place the two copies in different splits, triggering
+        # assert_no_overlap; the bigger concern is the conflicting-label
+        # examples poisoning the data.
+        norm, n_dup = drop_text_duplicates(norm)
+        if n_dup:
+            print(f"  dropped {n_dup} duplicate-text rows (kept {len(norm)})")
         train, test, train_idx, test_idx = deterministic_split(norm, train_ratio, split_seed)
         assert_no_overlap(train, test)
 

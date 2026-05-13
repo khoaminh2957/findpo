@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, Features, Value, load_dataset
 
 from .labels import canonicalize_label
 
@@ -65,14 +65,45 @@ def load_one(repo: str, revision: str | None, config: str | None = None,
     return ds
 
 
+# Forced output schema for normalize_dataset. Without this, HF datasets infers
+# the schema and silently inherits any ClassLabel feature from the source
+# dataset's label column — `canonicalize_label` then returns "neutral" but
+# ClassLabel coerces it BACK to the int 1 in the output dataset, so
+# downstream `ex["label"]` is still an int and `.encode("utf-8")` crashes.
+_NORMALIZED_FEATURES = Features({
+    "text": Value("string"),
+    "label": Value("string"),
+    "source": Value("string"),
+})
+
+
 def normalize_dataset(ds: Dataset, repo: str, source_tag: str) -> Dataset:
     fields = DATASET_FIELD_MAP.get(repo)
     if fields is None:
         raise KeyError(
             f"No field mapping for {repo}; add it to DATASET_FIELD_MAP in findpo/data.py."
         )
-    return ds.map(lambda ex: _normalize_example(ex, fields, source_tag, repo),
-                  remove_columns=ds.column_names)
+    return ds.map(
+        lambda ex: _normalize_example(ex, fields, source_tag, repo),
+        remove_columns=ds.column_names,
+        features=_NORMALIZED_FEATURES,
+    )
+
+
+def drop_text_duplicates(ds: Dataset) -> tuple[Dataset, int]:
+    """Drop ALL rows whose `text` appears more than once.
+
+    FPB sentences_50agree contains 8 distinct duplicates, several with
+    *conflicting* annotator labels (e.g. one annotator says neutral, another
+    says positive). Keeping either copy poisons the data; dropping all
+    copies of duplicated text yields a clean, deterministic dataset.
+    Returns (deduped_dataset, num_rows_dropped).
+    """
+    from collections import Counter
+    counts = Counter(ds["text"])
+    keep = [i for i, t in enumerate(ds["text"]) if counts[t] == 1]
+    n_dropped = len(ds) - len(keep)
+    return ds.select(keep), n_dropped
 
 
 def deterministic_split(ds: Dataset, train_ratio: float, seed: int) -> tuple[Dataset, Dataset, np.ndarray, np.ndarray]:
@@ -126,15 +157,18 @@ def write_manifest(manifest_path: Path, splits: list[SplitFingerprint],
 
 
 def assert_no_overlap(train: Dataset, test: Dataset) -> None:
-    """R8.d — hash every text + label, assert empty intersection."""
+    """R8.d — hash every text, assert empty intersection.
+
+    Hash by text alone (not (text, label)) so this catches BOTH true split
+    leakage AND annotator-disagreement duplicates where the same sentence
+    appears in both sets with conflicting labels. Either case undermines
+    test-set integrity.
+    """
     def keyset(ds: Dataset) -> set[str]:
-        return {
-            hashlib.sha256(f"{ex['text']}\x00{ex['label']}".encode()).hexdigest()
-            for ex in ds
-        }
+        return {hashlib.sha256(ex["text"].encode()).hexdigest() for ex in ds}
     overlap = keyset(train) & keyset(test)
     if overlap:
         raise AssertionError(
-            f"Train/test overlap: {len(overlap)} examples share (text,label). "
+            f"Train/test overlap: {len(overlap)} sentences share text. "
             "Split is broken — refuse to train."
         )
