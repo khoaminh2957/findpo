@@ -168,10 +168,13 @@ python scripts/aggregate_seeds.py --exp-id dpo_repro_qlora --eval-dataset fpb \
 - FPB FinDPO − FinSFT: paper +3.6% (0.865 − 0.829) → repro ≥ +2%
 - TFNS FinDPO − FinSFT: paper +2.2% → repro ≥ +1%
 - NWGI FinDPO − FinSFT: paper +12.5% → repro ≥ +8% (dominant driver)
-- Average: paper +9.7% → repro ≥ +6%
+- Simple mean of those three: +6.1% → repro ≥ +4%
 
 Note: paper's headline "+11%" is FinDPO vs FinGPT v3.3 (NOT vs FinSFT).
-Vs FinSFT (paper's own same-base SFT), gap is +9.7% average.
+Vs FinSFT (paper's own same-base SFT), the simple mean of per-dataset
+deltas above is +6.1%. The paper text may quote a higher "average" figure
+under a different averaging (e.g. weighted by dataset size), which we
+cannot reconcile from Table 2 alone.
 
 ## Reproducibility guardrails
 

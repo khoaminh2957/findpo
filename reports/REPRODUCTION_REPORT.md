@@ -7,7 +7,8 @@ Classification with Direct Preference Optimization"* ([arXiv:2507.18417](https:/
 reproduce the paper's headline improvement**. The DPO model consistently
 underperforms its own SFT initialisation by ~3.5 percentage points weighted F1
 on average across three datasets and three seeds — the opposite direction of
-the +9.7 pp improvement reported in Table 2 of the paper.
+the +6.1 pp improvement implied by Table 2 of the paper (simple mean of the
+per-dataset FinDPO − FinSFT deltas).
 
 This is a **valid negative result**, not a pipeline bug: the SFT phase matches
 or exceeds the paper's FinSFT baseline, the same eval code is used for both
@@ -79,7 +80,7 @@ Weighted F1, mean ± std across seeds 42 / 123 / 7. Same eval code as Phase 1.
 | FPB | 0.8898 ± 0.0045 | **0.8485 ± 0.0059** | **−0.0413** | +0.036 | ❌ Regression |
 | TFNS | 0.9111 ± 0.0012 | **0.8558 ± 0.0085** | **−0.0553** | +0.022 | ❌ Regression |
 | NWGI | 0.8538 ± 0.0028 | **0.8455 ± 0.0027** | **−0.0083** | +0.125 | ❌ Regression |
-| **Mean** | **0.8849** | **0.8499** | **−0.0350** | **+0.097** | ❌ |
+| **Mean** | **0.8849** | **0.8499** | **−0.0350** | **+0.061** | ❌ |
 
 DPO regresses on every dataset and every seed. The pass criteria from the
 [README outstanding](../README.md) (`FPB ≥ +2 %`, `TFNS ≥ +1 %`, `NWGI ≥ +8 %`,
