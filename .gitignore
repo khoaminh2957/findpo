@@ -51,3 +51,4 @@ results/
 results/exp_*/model/
 results/exp_*/checkpoints/
 results/exp_*/wandb/
+notebooks/findpo/

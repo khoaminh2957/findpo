@@ -80,7 +80,7 @@ def main() -> int:
             lines.append(f"| {r['seed']} | {r['accuracy']:.4f} | {r['macro_f1']:.4f} | {wf1_str} | {r['n_unparseable']} |")
         lines.append(f"| **mean ± std** | {stat_line(acc)} | {stat_line(f1)} | {stat_line(wf1)} | — |")
         lines.append("")
-        Path(args.out_md).write_text("\n".join(lines))
+        Path(args.out_md).write_text("\n".join(lines), encoding="utf-8")
     return 0
 
 
