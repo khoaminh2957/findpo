@@ -1,0 +1,5 @@
+{
+  "phase": "sft-train-complete",
+  "n_train": 24445,
+  "n_test": 6112
+}

@@ -12,7 +12,6 @@ venv/
 .python-version
 
 # --- large artifacts (must never land in git) ---
-results/
 logs/
 checkpoints/
 wandb/
@@ -36,3 +35,8 @@ Thumbs.db
 .vscode/
 .idea/
 !data/manifest_phase0.json
+
+# Allow Phase 1 + Phase 2 eval result JSONs (small, traceable)
+results/
+!results/exp_*/eval_*.json
+!results/exp_*/final_metrics.json

@@ -1,0 +1,65 @@
+{
+  "eval_dataset": "gpt_news",
+  "n": 3237,
+  "accuracy": 0.853877046648131,
+  "macro_f1": 0.775908258024053,
+  "weighted_f1": 0.8523268889167078,
+  "n_unparseable": 0,
+  "per_class": {
+    "negative": {
+      "precision": 0.9056420233463035,
+      "recall": 0.9154375614552606,
+      "f1-score": 0.9105134474327629,
+      "support": 1017.0
+    },
+    "neutral": {
+      "precision": 0.5461956521739131,
+      "recall": 0.5088607594936709,
+      "f1-score": 0.526867627785059,
+      "support": 395.0
+    },
+    "positive": {
+      "precision": 0.88647474198805,
+      "recall": 0.8942465753424658,
+      "f1-score": 0.8903436988543372,
+      "support": 1825.0
+    },
+    "accuracy": 0.853877046648131,
+    "macro avg": {
+      "precision": 0.7794374725027554,
+      "recall": 0.7728482987637991,
+      "f1-score": 0.775908258024053,
+      "support": 3237.0
+    },
+    "weighted avg": {
+      "precision": 0.8509736251096934,
+      "recall": 0.853877046648131,
+      "f1-score": 0.8523268889167078,
+      "support": 3237.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "matrix": [
+      [
+        931,
+        28,
+        58
+      ],
+      [
+        43,
+        201,
+        151
+      ],
+      [
+        54,
+        139,
+        1632
+      ]
+    ]
+  }
+}
