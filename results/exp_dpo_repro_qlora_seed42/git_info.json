@@ -1,0 +1,6 @@
+{
+  "commit": "<error: Command '['git', '-C', '/workspace/findpo', 'rev-parse', 'HEAD']' returned non-zero exit status 128.>",
+  "branch": "<error: Command '['git', '-C', '/workspace/findpo', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.>",
+  "dirty_files": "<error: Command '['git', '-C', '/workspace/findpo', 'status', '--porcelain']' returned non-zero exit status 128.>",
+  "remote": "<error: Command '['git', '-C', '/workspace/findpo', 'remote', '-v']' returned non-zero exit status 128.>"
+}

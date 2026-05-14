@@ -38,5 +38,16 @@ Thumbs.db
 
 # Allow Phase 1 + Phase 2 eval result JSONs (small, traceable)
 results/
+!results/exp_*/
 !results/exp_*/eval_*.json
 !results/exp_*/final_metrics.json
+!results/exp_*/predictions_*.jsonl
+!results/exp_*/config.yaml
+!results/exp_*/env_info.json
+!results/exp_*/git_info.json
+!results/exp_*/train_log.jsonl
+!results/exp_*/wandb_run_id.txt
+# but never the model adapters / checkpoints / wandb dirs
+results/exp_*/model/
+results/exp_*/checkpoints/
+results/exp_*/wandb/

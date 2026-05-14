@@ -1,0 +1,65 @@
+{
+  "eval_dataset": "tfns",
+  "n": 1909,
+  "accuracy": 0.8554216867469879,
+  "macro_f1": 0.7970412988264487,
+  "weighted_f1": 0.8472525885900176,
+  "n_unparseable": 59,
+  "per_class": {
+    "negative": {
+      "precision": 0.9101796407185628,
+      "recall": 0.5241379310344828,
+      "f1-score": 0.6652078774617067,
+      "support": 290.0
+    },
+    "neutral": {
+      "precision": 0.8428262436914203,
+      "recall": 0.9566284779050737,
+      "f1-score": 0.8961287849750862,
+      "support": 1222.0
+    },
+    "positive": {
+      "precision": 0.8788732394366198,
+      "recall": 0.7858942065491183,
+      "f1-score": 0.8297872340425532,
+      "support": 397.0
+    },
+    "accuracy": 0.8554216867469879,
+    "macro avg": {
+      "precision": 0.877293041282201,
+      "recall": 0.755553538496225,
+      "f1-score": 0.7970412988264487,
+      "support": 1909.0
+    },
+    "weighted avg": {
+      "precision": 0.8605544482219156,
+      "recall": 0.8554216867469879,
+      "f1-score": 0.8472525885900176,
+      "support": 1909.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "matrix": [
+      [
+        152,
+        135,
+        3
+      ],
+      [
+        13,
+        1169,
+        40
+      ],
+      [
+        2,
+        83,
+        312
+      ]
+    ]
+  }
+}

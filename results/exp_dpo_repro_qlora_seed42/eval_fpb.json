@@ -1,0 +1,65 @@
+{
+  "eval_dataset": "fpb",
+  "n": 966,
+  "accuracy": 0.8509316770186336,
+  "macro_f1": 0.8377256730197907,
+  "weighted_f1": 0.8500390203715013,
+  "n_unparseable": 3,
+  "per_class": {
+    "negative": {
+      "precision": 0.9,
+      "recall": 0.7983870967741935,
+      "f1-score": 0.8461538461538461,
+      "support": 124.0
+    },
+    "neutral": {
+      "precision": 0.8585526315789473,
+      "recall": 0.9,
+      "f1-score": 0.8787878787878788,
+      "support": 580.0
+    },
+    "positive": {
+      "precision": 0.8104838709677419,
+      "recall": 0.767175572519084,
+      "f1-score": 0.788235294117647,
+      "support": 262.0
+    },
+    "accuracy": 0.8509316770186336,
+    "macro avg": {
+      "precision": 0.8563455008488964,
+      "recall": 0.8218542230977591,
+      "f1-score": 0.8377256730197907,
+      "support": 966.0
+    },
+    "weighted avg": {
+      "precision": 0.8508357148129793,
+      "recall": 0.8509316770186336,
+      "f1-score": 0.8500390203715013,
+      "support": 966.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "matrix": [
+      [
+        99,
+        25,
+        0
+      ],
+      [
+        11,
+        522,
+        47
+      ],
+      [
+        0,
+        61,
+        201
+      ]
+    ]
+  }
+}

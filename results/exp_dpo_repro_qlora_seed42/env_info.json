@@ -1,0 +1,25 @@
+{
+  "python_version": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+  "python_executable": "/workspace/venv/bin/python",
+  "platform": "Linux-5.15.0-176-generic-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "torch_version": "2.7.0+cu128",
+  "torch_cuda_available": true,
+  "cuda_runtime": "12.8",
+  "gpu_count": 1,
+  "gpus": [
+    "NVIDIA A100-PCIE-40GB"
+  ],
+  "transformers_version": "4.46.3",
+  "trl_version": "0.12.2",
+  "peft_version": "0.14.0",
+  "accelerate_version": "1.2.1",
+  "bitsandbytes_version": "0.49.2",
+  "datasets_version": "3.2.0",
+  "tokenizers_version": "0.20.3",
+  "wandb_version": "0.26.1",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.3",
+  "nvidia_smi": "NVIDIA A100-PCIE-40GB, 580.126.09, 40960 MiB\nNVIDIA A100-PCIE-40GB, 580.126.09, 40960 MiB\nNVIDIA A100-PCIE-40GB, 580.126.09, 40960 MiB\nNVIDIA A100-PCIE-40GB, 580.126.09, 40960 MiB",
+  "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Tue_May_27_02:21:03_PDT_2025\nCuda compilation tools, release 12.9, V12.9.86\nBuild cuda_12.9.r12.9/compiler.36037853_0"
+}
