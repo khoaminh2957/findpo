@@ -1,8 +1,8 @@
 # FinDPO reproduction
 
-Reproduction of **FinDPO** (Iacovides, Zhou & Mandic 2025; [arXiv:2507.18417](https://arxiv.org/abs/2507.18417)) — 3-class financial sentiment classifier trained with DPO on top of Llama-3.
+Reproduction of **FinDPO** (Iacovides, Zhou & Mandic 2025; [arXiv:2507.18417](https://arxiv.org/abs/2507.18417)): a 3-class financial sentiment classifier trained with DPO on Llama-3.
 
-This repo is the baseline scaffold for downstream research on alternative label sources (multi-LLM annotation replacing FPB labels).
+The repo is a baseline scaffold for downstream research on alternative label sources (multi-LLM annotation replacing FPB labels).
 
 ## Scope
 
@@ -49,69 +49,64 @@ reports/                 Phase summary reports + final REPRODUCTION_REPORT.md
 
 ## Setup (REMOTE_GPU)
 
-**Hardware:** target is RTX 5090 / RTX PRO 6000 Blackwell (sm_120) on
-Vast.ai. The version floors below are forced by Blackwell support —
-earlier `bitsandbytes` and `flash-attn` releases ship no sm_120 kernels
-and will crash at model load.
+Target hardware is RTX 5090 / RTX PRO 6000 Blackwell (sm_120) on Vast.ai.
+The pinned versions of `bitsandbytes` and `flash-attn` are the lowest
+releases that ship sm_120 kernels; older releases crash at model load.
 
-**Vast.ai Docker template (verified 2026-05-13 via Docker Hub):**
+Vast.ai Docker template (verified 2026-05-13 on Docker Hub):
 
 ```
 pytorch/pytorch:2.7.0-cuda12.8-cudnn9-devel
 ```
 
-This image matches the pinned `torch==2.7.0` + CUDA 12.8 (Blackwell-capable)
-exactly. `devel` variant ships nvcc + CUDA headers needed to build
-flash-attn from source. Image size ~8GB; allocate ≥100GB disk on Vast.ai.
+This matches the pinned `torch==2.7.0` + CUDA 12.8. The `devel` variant
+ships nvcc + CUDA headers, which are needed to build flash-attn from
+source. Image is ~8 GB; allocate >= 100 GB disk on Vast.ai.
 
-DO NOT use `vastai/pytorch` (outdated to PyTorch 1.0 / CUDA 10.0).
+Avoid `vastai/pytorch` (stuck on PyTorch 1.0 / CUDA 10.0).
 
-Alternative if you want flash-attn pre-built (saves 30-60min build):
-`axolotlai/axolotl-cloud-term:main-py3.11-cu128-2.9.1` — but ships
-PyTorch 2.9.1 (not exact match) and 14GB; you'll need to
-`pip install -r requirements.txt --force-reinstall` to overwrite
-the Axolotl-installed library versions with our pinned ones.
+If you want a prebuilt flash-attn (saves 30-60 min of build time), use
+`axolotlai/axolotl-cloud-term:main-py3.11-cu128-2.9.1`. That image ships
+PyTorch 2.9.1 (not an exact match) and is 14 GB, so you also need
+`pip install -r requirements.txt --force-reinstall` to overwrite the
+Axolotl-installed versions with the pinned ones.
 
-**Pip-first install (recommended for cloud rentals like Vast.ai):**
+Install (pip path, what I use on Vast.ai):
 
 ```bash
-# 1. Verify GPU + driver. Need driver ≥ 570.x for Blackwell.
+# Driver >= 570.x for Blackwell
 nvidia-smi
-# 2. Fresh venv (Vast.ai images usually have python 3.10+).
+
 python -m venv ~/findpo-env && source ~/findpo-env/bin/activate
-# 3. PyTorch first, from the cu128 channel.
+
+# PyTorch from the cu128 channel
 pip install --extra-index-url https://download.pytorch.org/whl/cu128 torch==2.7.0
-# 4. All other pinned deps (transformers, trl, peft, bitsandbytes 0.49.2, …).
+
+# transformers, trl, peft, bitsandbytes 0.49.2, ...
 pip install -r requirements.txt
-# 5. flash-attn — empirically verified on 2026-05-13 via pip / PyPI API:
-#    flash-attn 2.7.4.post1 through 2.8.3 ship ONLY a source tarball on PyPI
-#    (no precompiled wheels). `pip install flash-attn==2.8.3 --no-build-isolation`
-#    will COMPILE FROM SOURCE — 30-60 min on first install, needs ninja + g++ +
-#    CUDA toolkit in PATH + ~16GB RAM during build. Don't panic when CPU sits
-#    at 100% for an hour.
+
+# flash-attn 2.7.4.post1 to 2.8.3 only ship a source tarball on PyPI,
+# so this compiles from source (30-60 min on first install; needs ninja,
+# g++, CUDA toolkit on PATH, and ~16 GB RAM during the build).
 pip install flash-attn==2.8.3 --no-build-isolation
-#    To skip the build, grab a prebuilt community wheel matching torch+cu128+sm_120:
-#      https://huggingface.co/lldacing/flash-attention-prebuild-wheels
-#    Pick the file name matching your stack (e.g. flash_attn-2.7.4...-cp310-...whl)
-#    and `pip install <url>`.
-#    Last-resort fallback: switch configs to attn_implementation: "sdpa" —
-#    setup_check warns + all four model-load sites have try/except auto-fallback.
-# 6. HF auth.
-huggingface-cli login           # paste your HF token (Llama-3.1-8B-Instruct must be granted)
-# 7. W&B.
-wandb login                     # paste API key from https://wandb.ai/authorize
-# 8. Phase-0 smoke test.
+# To skip the build, grab a prebuilt community wheel matching
+# torch+cu128+sm_120 from:
+#   https://huggingface.co/lldacing/flash-attention-prebuild-wheels
+# If that also fails, set attn_implementation: "sdpa" in the configs;
+# setup_check warns and all four model-load sites already auto-fallback.
+
+huggingface-cli login           # HF token; Llama-3.1-8B-Instruct must be granted
+wandb login                     # API key from https://wandb.ai/authorize
+
 python scripts/00_setup_check.py    # must exit 0
-# 9. Freeze the exact versions for reproducibility.
 pip freeze > requirements.lock.txt && git add requirements.lock.txt
 ```
 
-`environment.yml` (conda) is provided as an alternative install path and
-pins the same versions.
+`environment.yml` is the conda alternative and pins the same versions.
 
 ## Run a phase
 
-### Phase 0 — data fingerprint
+### Phase 0: data fingerprint
 ```bash
 python scripts/00_download_datasets.py --config configs/sft_baseline.yaml
 git add data/manifest_phase0.json data/splits/*_idx.json
@@ -119,7 +114,7 @@ git commit -m "phase 0: data manifest"
 git tag phase-0-complete
 ```
 
-### Phase 1 — SFT baseline (one seed per GPU, 3 seeds in parallel)
+### Phase 1: SFT baseline (one seed per GPU, 3 seeds in parallel)
 ```bash
 CUDA_VISIBLE_DEVICES=0 python scripts/01_sft_train.py --config configs/sft_baseline.yaml --seed 42 &
 CUDA_VISIBLE_DEVICES=1 python scripts/01_sft_train.py --config configs/sft_baseline.yaml --seed 123 &
@@ -132,12 +127,12 @@ python scripts/aggregate_seeds.py --exp-id sft_baseline --eval-dataset fpb \
   --out-md reports/phase_1_sft_table.md
 ```
 
-**Paper-grounded pass criterion** (FinDPO Table 2, FinSFT weighted F1):
-- FPB ≥ 0.80 (paper FinSFT = 0.829)
-- TFNS ≥ 0.82 (paper FinSFT = 0.850)
-- NWGI ≥ 0.68 (paper FinSFT = 0.708)
+Pass criterion (FinDPO paper Table 2, FinSFT weighted F1):
+- FPB >= 0.80 (paper FinSFT = 0.829)
+- TFNS >= 0.82 (paper FinSFT = 0.850)
+- NWGI >= 0.68 (paper FinSFT = 0.708)
 
-### Phase 2 — DPO repro
+### Phase 2: DPO repro
 ```bash
 # 1. Build preference pairs once per seed (strategy B uses the seed-matched SFT model).
 for s in 42 123 7; do
@@ -164,35 +159,35 @@ python scripts/aggregate_seeds.py --exp-id dpo_repro_qlora --eval-dataset fpb \
   --out-md reports/phase_2_dpo_table.md
 ```
 
-**Paper-grounded pass criterion** (FinDPO Table 2, weighted F1 mean ± std):
-- FPB FinDPO − FinSFT: paper +3.6% (0.865 − 0.829) → repro ≥ +2%
-- TFNS FinDPO − FinSFT: paper +2.2% → repro ≥ +1%
-- NWGI FinDPO − FinSFT: paper +12.5% → repro ≥ +8% (dominant driver)
-- Simple mean of those three: +6.1% → repro ≥ +4%
+Pass criterion (FinDPO paper Table 2, weighted F1 mean ± std), FinDPO vs FinSFT:
+- FPB: paper +3.6% (0.865 vs 0.829); repro target +2%
+- TFNS: paper +2.2%; repro target +1%
+- NWGI: paper +12.5%; repro target +8% (dominant driver)
+- Simple mean of the three: +6.1%; repro target +4%
 
-Note: paper's headline "+11%" is FinDPO vs FinGPT v3.3 (NOT vs FinSFT).
-Vs FinSFT (paper's own same-base SFT), the simple mean of per-dataset
-deltas above is +6.1%. The paper text may quote a higher "average" figure
-under a different averaging (e.g. weighted by dataset size), which we
-cannot reconcile from Table 2 alone.
+The paper's headline "+11%" is FinDPO vs FinGPT v3.3, not vs FinSFT.
+Against the paper's own same-base SFT, the simple mean of the per-dataset
+deltas above is +6.1%; the paper may use a different averaging (e.g.
+weighted by dataset size) for its +11% figure, which Table 2 alone does
+not let me reproduce.
 
-## Reproducibility guardrails
+## Reproducibility
 
-- Every training script refuses to launch with a dirty working tree
-  (`git status --porcelain` non-empty). Pass `--allow-dirty` only for
+- Training scripts refuse to launch with a dirty working tree
+  (`git status --porcelain` non-empty); pass `--allow-dirty` only for
   exploratory runs that will not appear in the report.
-- `data_manifest.json`, `env_info.json`, `git_info.json`, `config.yaml` are
-  written into every run directory.
-- All metrics are double-logged: W&B + `results/exp_*/train_log.jsonl`.
-- `aggregate_seeds.py` is the only sanctioned way to produce a headline
-  number in a report — never cite a single-seed result.
+- `data_manifest.json`, `env_info.json`, `git_info.json`, and `config.yaml`
+  are written into every run directory.
+- Metrics are double-logged to W&B and `results/exp_*/train_log.jsonl`.
+- `aggregate_seeds.py` is the only path to a headline number in a report;
+  do not cite a single-seed result.
 
-## Outstanding TODOs
+## TODO
 
-- [ ] Confirm the GPT-labeled financial news dataset repo against the paper
-  PDF and fill the `gpt_news.repo` field in both configs (currently
+- Confirm the GPT-labeled financial news dataset against the paper PDF
+  and fill the `gpt_news.repo` field in both configs (currently
   `TODO_VERIFY_FROM_PAPER`).
-- [ ] After first download on remote, pin `revision` commit hashes for every
-  HF dataset and the base model.
-- [ ] Decide whether Phase 3 (trading sim) is added back after Phase 2.
-- [ ] Llama-3.3-70B extension experiment (deferred).
+- After the first download on the remote box, pin `revision` commit
+  hashes for every HF dataset and for the base model.
+- Decide whether Phase 3 (trading sim) gets added back after Phase 2.
+- Llama-3.3-70B extension experiment (deferred).
